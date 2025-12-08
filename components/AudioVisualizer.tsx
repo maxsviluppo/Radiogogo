@@ -26,9 +26,10 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ analyser, isPlaying, 
         const bufferLength = analyser.frequencyBinCount;
         dataArray = new Uint8Array(bufferLength);
         if (mode === 'wave') {
-          analyser.getByteTimeDomainData(dataArray);
+          // Cast a 'any' per risolvere il conflitto di tipi tra Uint8Array<ArrayBufferLike> e Uint8Array<ArrayBuffer>
+          analyser.getByteTimeDomainData(dataArray as any);
         } else {
-          analyser.getByteFrequencyData(dataArray);
+          analyser.getByteFrequencyData(dataArray as any);
         }
       }
 
