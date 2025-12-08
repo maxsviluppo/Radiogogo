@@ -11,7 +11,7 @@ export interface RadioStation {
 }
 
 export interface AudioVisualizerProps {
-  analyser: AnalyserNode | null; // Cambiato: ora riceve l'analizzatore dall'esterno
+  analyser: AnalyserNode | null; 
   isPlaying: boolean;
   color: string;
   mode: VisualizerMode;

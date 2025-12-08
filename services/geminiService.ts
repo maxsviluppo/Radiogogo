@@ -1,17 +1,27 @@
 import { GoogleGenAI } from "@google/genai";
 import { RadioStation } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Safe initialization
+const apiKey = process.env.API_KEY;
+let ai: GoogleGenAI | null = null;
+
+if (apiKey) {
+  ai = new GoogleGenAI({ apiKey: apiKey });
+}
 
 export const getStationVibe = async (station: RadioStation): Promise<string> => {
+  // Fallback if no API Key (Public GitHub Repo mode)
+  if (!ai) {
+    return `Now playing: ${station.genre} vibes.`;
+  }
+
   try {
     const prompt = `
-      Genera una descrizione molto breve, suggestiva e "cool" (massimo 2 frasi) 
-      per una web radio chiamata "${station.name}" che trasmette musica di genere "${station.genre}".
-      
-      Usa un tono un po' da DJ radiofonico o poetico. 
+      Genera una descrizione brevissima (max 10 parole), suggestiva e "cool"
+      per una web radio chiamata "${station.name}" (${station.genre}).
+      Tono: Cyberpunk/Futuristico.
       Lingua: Italiano.
-      Non usare virgolette.
+      Nessuna virgoletta.
     `;
 
     const response = await ai.models.generateContent({
@@ -19,9 +29,9 @@ export const getStationVibe = async (station: RadioStation): Promise<string> => 
       contents: prompt,
     });
 
-    return response.text || "Sintonizzati sul ritmo...";
+    return response.text || "Segnale agganciato...";
   } catch (error) {
-    console.error("Errore Gemini:", error);
-    return "Trasmissione in corso...";
+    console.warn("AI Offline, using fallback.");
+    return "Connessione neurale instabile...";
   }
 };
