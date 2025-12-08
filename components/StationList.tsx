@@ -23,7 +23,7 @@ const StationList: React.FC<StationListProps> = ({
     <div className="w-full min-h-full bg-white text-black font-sans">
       {/* Header stile iPod */}
       <div className="bg-gradient-to-b from-[#eee] to-[#ccc] px-2 py-1 border-b border-[#999] shadow-sm sticky top-0 z-10">
-          <h2 className="text-center font-bold text-xs text-black drop-shadow-sm tracking-wide">Music > Stations</h2>
+          <h2 className="text-center font-bold text-xs text-black drop-shadow-sm tracking-wide">Music &gt; Stations</h2>
       </div>
 
       <div className="pb-4">
@@ -57,7 +57,7 @@ const StationList: React.FC<StationListProps> = ({
               )}
               
               {!isActive && (
-                  <span className="text-gray-300 text-xs font-bold">></span>
+                  <span className="text-gray-300 text-xs font-bold">&gt;</span>
               )}
             </div>
           );
