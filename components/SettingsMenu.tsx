@@ -35,15 +35,18 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ stations, onSelectStation, 
           onAddStation(newName, newUrl, 'Custom', 'User');
           setNewName('');
           setNewUrl('');
-          alert('Station Added!');
+          // Visual feedback removed to keep it cleaner
       }
   };
 
   const handleYtAdd = () => {
       if(ytUrl) {
-          // Nota: Questo è un placeholder. Senza un proxy backend, YT diretto non funziona in <audio>.
-          // Tuttavia, se l'utente mette un link a un file audio diretto, funziona.
-          onAddStation('YouTube Audio', ytUrl, 'YouTube', 'Web');
+          // Nota importante per l'utente
+          if (ytUrl.includes('youtube.com') || ytUrl.includes('youtu.be')) {
+             alert("Nota: I link video di YouTube non funzionano direttamente nei player web standard senza un proxy. Inserisci un link diretto a un file audio (mp3/stream) o usa un servizio di conversione.");
+          }
+          
+          onAddStation('Web Stream', ytUrl, 'Stream', 'Web');
           setYtUrl('');
       }
   };
@@ -58,13 +61,13 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ stations, onSelectStation, 
 
       {/* Tabs */}
       <div className="flex border-b border-white/10 bg-[#0a0a0a]">
-          {['search', 'filter', 'add', 'yt'].map(tab => (
+          {['search', 'filter', 'add', 'link'].map(tab => (
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
-                className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider ${activeTab === tab ? 'bg-[#222] text-blue-400 border-b-2 border-blue-400' : 'text-gray-500 hover:text-white'}`}
+                className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider ${activeTab === (tab === 'link' ? 'yt' : tab) ? 'bg-[#222] text-blue-400 border-b-2 border-blue-400' : 'text-gray-500 hover:text-white'}`}
               >
-                  {tab === 'yt' ? 'YouTube' : tab}
+                  {tab}
               </button>
           ))}
       </div>
@@ -137,7 +140,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ stations, onSelectStation, 
                         type="text" 
                         value={newUrl}
                         onChange={(e) => setNewUrl(e.target.value)}
-                        placeholder="https://..."
+                        placeholder="https://stream.example.com/audio.mp3"
                         className="w-full bg-[#222] border border-[#333] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500"
                       />
                   </div>
@@ -150,28 +153,28 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ stations, onSelectStation, 
               </div>
           )}
 
-          {/* YOUTUBE TAB */}
+          {/* LINK/YOUTUBE TAB */}
           {activeTab === 'yt' && (
               <div className="space-y-4 pt-2 text-center">
                   <div className="w-12 h-12 bg-red-600 rounded-full mx-auto flex items-center justify-center mb-2 shadow-[0_0_15px_rgba(220,38,38,0.5)]">
                      <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill="black"></polygon></svg>
                   </div>
                   <p className="text-[10px] text-gray-400 leading-relaxed px-4">
-                      Inserisci link diretto audio. <br/>
-                      <span className="text-red-400 opacity-70">Nota: Link video standard potrebbero non funzionare senza conversione.</span>
+                      Inserisci URL diretto audio (mp3, aac, m3u).<br/>
+                      <span className="text-red-400 opacity-70 italic">Link YouTube video non supportati.</span>
                   </p>
                   <input 
                     type="text" 
                     value={ytUrl}
                     onChange={(e) => setYtUrl(e.target.value)}
-                    placeholder="Incolla link..."
+                    placeholder="https://..."
                     className="w-full bg-[#222] border border-[#333] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500"
                   />
                   <button 
                     onClick={handleYtAdd}
                     className="w-full py-2 bg-red-700 hover:bg-red-600 rounded text-xs font-bold uppercase tracking-wider shadow-lg transition-all active:scale-95"
                   >
-                      Play Audio
+                      Load Stream
                   </button>
               </div>
           )}
