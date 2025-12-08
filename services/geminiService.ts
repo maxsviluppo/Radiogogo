@@ -2,16 +2,22 @@ import { GoogleGenAI } from "@google/genai";
 import { RadioStation } from "../types";
 
 // Safe initialization of API Key
-// This prevents "ReferenceError: process is not defined" on static hosts like GitHub Pages
+// Supports both NodeJS process.env (legacy/Next) and Vite import.meta.env
 const getApiKey = (): string | undefined => {
   try {
+    // Check Vite env
+    const meta = import.meta as any;
+    if (typeof meta !== "undefined" && meta.env && meta.env.VITE_API_KEY) {
+      return meta.env.VITE_API_KEY;
+    }
+    // Check Process env (fallback)
     // @ts-ignore
-    if (typeof process !== "undefined" && process.env) {
+    if (typeof process !== "undefined" && process.env && process.env.API_KEY) {
       // @ts-ignore
       return process.env.API_KEY;
     }
   } catch (e) {
-    console.warn("Environment process not found, running in offline/demo mode.");
+    console.warn("Environment check failed, running in offline/demo mode.");
   }
   return undefined;
 };
@@ -28,9 +34,8 @@ if (apiKey) {
 }
 
 export const getStationVibe = async (station: RadioStation): Promise<string> => {
-  // Fallback if no API Key (Public GitHub Repo mode / Static Host)
+  // Fallback if no API Key (Offline Mode)
   if (!ai) {
-    // Simulazione di una risposta AI per evitare spazi vuoti
     const fallbacks = [
       `Vibes: ${station.genre} pure energy.`,
       `Mode: ${station.country} underground.`,
@@ -56,7 +61,7 @@ export const getStationVibe = async (station: RadioStation): Promise<string> => 
 
     return response.text || "Segnale agganciato...";
   } catch (error) {
-    console.warn("AI Request Failed (Offline or Quota Exceeded).");
+    console.warn("AI Request Failed.");
     return "Connessione neurale instabile...";
   }
 };

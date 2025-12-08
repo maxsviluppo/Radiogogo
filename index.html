@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>NeonStream Radio | AI Player</title>
     <meta name="description" content="Web Radio Player stile iPod Dark Mode con visualizzatore audio e integrazione AI.">
+    <!-- Tailwind CSS CDN (Keeping it simple for portability, can be moved to npm later) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -12,36 +13,18 @@
         font-family: 'Inter', sans-serif;
         background-color: #000000;
         color: #e2e8f0;
-        overflow: hidden; /* Prevent body scroll */
-        overscroll-behavior: none; /* Prevent bounce on mobile */
+        overflow: hidden;
+        overscroll-behavior: none;
       }
-      h1, h2, h3, .font-display {
-        font-family: 'Orbitron', sans-serif;
-      }
-      .font-tech {
-        font-family: 'Rajdhani', sans-serif;
-      }
+      h1, h2, h3, .font-display { font-family: 'Orbitron', sans-serif; }
+      .font-tech { font-family: 'Rajdhani', sans-serif; }
       
-      /* Smooth Scrolling */
-      .custom-scrollbar {
-        scrollbar-width: thin;
-        scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
-      }
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent; 
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.1); 
-        border-radius: 10px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.3); 
-      }
+      .custom-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.1) transparent; }
+      .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
 
-      /* Animations */
       @keyframes marquee {
         0% { transform: translateX(0); }
         10% { transform: translateX(0); }
@@ -54,17 +37,18 @@
   <script type="importmap">
 {
   "imports": {
+    "vite": "https://aistudiocdn.com/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2",
     "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
     "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0"
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/"
   }
 }
 </script>
 </head>
   <body>
     <div id="root"></div>
-    <!-- CRITICAL FIX FOR GITHUB PAGES: Use relative path ./ instead of absolute / -->
-    <script type="module" src="./index.tsx"></script>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
