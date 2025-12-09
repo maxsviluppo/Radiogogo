@@ -1,4 +1,6 @@
+
 export type VisualizerMode = 'bars' | 'wave' | 'orb' | 'particles';
+export type TextureMode = 'iPod' | 'Cyberpunk' | 'Retro';
 
 export interface RadioStation {
   id: string;
@@ -8,6 +10,7 @@ export interface RadioStation {
   color: string;
   country: string;
   logo: string;
+  isFavorite?: boolean; // New optional property
 }
 
 export interface AudioVisualizerProps {

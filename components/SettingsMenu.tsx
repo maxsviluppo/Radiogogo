@@ -1,55 +1,50 @@
+
 import React, { useState } from 'react';
-import { RadioStation } from '../types';
+import { RadioStation, TextureMode } from '../types';
 
 interface SettingsMenuProps {
   stations: RadioStation[];
   onSelectStation: (station: RadioStation) => void;
   onAddStation: (name: string, url: string, genre: string, country: string) => void;
+  currentTexture: TextureMode;
+  onSetTexture: (texture: TextureMode) => void;
 }
 
-const SettingsMenu: React.FC<SettingsMenuProps> = ({ stations, onSelectStation, onAddStation }) => {
-  const [activeTab, setActiveTab] = useState<'search' | 'filter' | 'add' | 'yt'>('search');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState<string>('All');
+const SettingsMenu: React.FC<SettingsMenuProps> = ({ 
+  stations, 
+  onSelectStation, 
+  onAddStation,
+  currentTexture,
+  onSetTexture
+}) => {
+  const [activeTab, setActiveTab] = useState<'skin' | 'upload' | 'add' | 'yt'>('skin');
   
   // Add Form State
   const [newName, setNewName] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [ytUrl, setYtUrl] = useState('');
 
-  // Derived Data
-  const uniqueCountries = ['All', ...Array.from(new Set(stations.map(s => s.country)))];
-  
-  const filteredStations = stations.filter(s => {
-      if (activeTab === 'search') {
-          return s.name.toLowerCase().includes(searchTerm.toLowerCase());
-      }
-      if (activeTab === 'filter') {
-          return selectedCountry === 'All' || s.country === selectedCountry;
-      }
-      return true;
-  });
-
   const handleManualAdd = () => {
       if(newName && newUrl) {
           onAddStation(newName, newUrl, 'Custom', 'User');
           setNewName('');
           setNewUrl('');
-          // Visual feedback removed to keep it cleaner
       }
   };
 
-  const handleYtAdd = () => {
-      if(ytUrl) {
-          // Nota importante per l'utente
-          if (ytUrl.includes('youtube.com') || ytUrl.includes('youtu.be')) {
-             alert("Nota: I link video di YouTube non funzionano direttamente nei player web standard senza un proxy. Inserisci un link diretto a un file audio (mp3/stream) o usa un servizio di conversione.");
-          }
-          
-          onAddStation('Web Stream', ytUrl, 'Stream', 'Web');
-          setYtUrl('');
-      }
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const objectUrl = URL.createObjectURL(file);
+      onAddStation(file.name.replace(/\.[^/.]+$/, ""), objectUrl, 'Local File', 'My Device');
+    }
   };
+
+  const textures: {id: TextureMode, name: string, color: string}[] = [
+    { id: 'iPod', name: 'iPod Classic', color: '#4a4a4a' },
+    { id: 'Cyberpunk', name: 'Cyberpunk Neon', color: '#000000' },
+    { id: 'Retro', name: 'Retro Gold', color: '#3e2723' },
+  ];
 
   return (
     <div className="w-full min-h-full bg-[#111] text-white font-sans flex flex-col">
@@ -61,65 +56,65 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ stations, onSelectStation, 
 
       {/* Tabs */}
       <div className="flex border-b border-white/10 bg-[#0a0a0a]">
-          {['search', 'filter', 'add', 'link'].map(tab => (
+          {['skin', 'upload', 'add', 'link'].map(tab => (
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
-                className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider ${activeTab === (tab === 'link' ? 'yt' : tab) ? 'bg-[#222] text-blue-400 border-b-2 border-blue-400' : 'text-gray-500 hover:text-white'}`}
+                className={`flex-1 py-3 text-[9px] font-bold uppercase tracking-wider ${activeTab === tab ? 'bg-[#222] text-blue-400 border-b-2 border-blue-400' : 'text-gray-500 hover:text-white'}`}
               >
                   {tab}
               </button>
           ))}
       </div>
 
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-4 overflow-y-auto">
           
-          {/* SEARCH TAB */}
-          {activeTab === 'search' && (
-              <div className="space-y-4">
-                  <input 
-                    type="text" 
-                    placeholder="Search station..." 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full bg-[#222] border border-[#333] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                  />
-                  <div className="space-y-1">
-                      {filteredStations.slice(0, 10).map(s => (
-                          <div key={s.id} onClick={() => onSelectStation(s)} className="p-2 hover:bg-white/10 rounded cursor-pointer flex justify-between items-center group">
-                              <span className="text-xs font-bold text-gray-300 group-hover:text-white">{s.name}</span>
-                              <span className="text-[9px] text-gray-600">{s.genre}</span>
-                          </div>
-                      ))}
-                      {filteredStations.length === 0 && <p className="text-xs text-gray-600 text-center mt-4">No results.</p>}
-                  </div>
-              </div>
+          {/* SKIN TAB */}
+          {activeTab === 'skin' && (
+             <div className="space-y-4 pt-2">
+                <p className="text-[10px] text-gray-400 text-center mb-4">Seleziona Texture Dispositivo</p>
+                <div className="grid grid-cols-1 gap-3">
+                  {textures.map((tex) => (
+                    <button
+                      key={tex.id}
+                      onClick={() => onSetTexture(tex.id)}
+                      className={`
+                        flex items-center justify-between p-3 rounded-lg border transition-all
+                        ${currentTexture === tex.id 
+                          ? 'border-blue-500 bg-white/10 shadow-[0_0_10px_rgba(59,130,246,0.5)]' 
+                          : 'border-[#333] bg-[#222] hover:bg-[#333]'
+                        }
+                      `}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-full border border-white/20" style={{backgroundColor: tex.color}}></div>
+                        <span className="text-xs font-bold">{tex.name}</span>
+                      </div>
+                      {currentTexture === tex.id && <span className="text-blue-400 text-[10px]">● ACTIVE</span>}
+                    </button>
+                  ))}
+                </div>
+             </div>
           )}
 
-          {/* FILTER TAB */}
-          {activeTab === 'filter' && (
-              <div className="space-y-4">
-                  <div className="flex flex-wrap gap-2">
-                      {uniqueCountries.map(c => (
-                          <button 
-                            key={c}
-                            onClick={() => setSelectedCountry(c)}
-                            className={`px-3 py-1 rounded-full text-[10px] border ${selectedCountry === c ? 'bg-blue-600 border-blue-500 text-white' : 'bg-transparent border-[#333] text-gray-400'}`}
-                          >
-                              {c}
-                          </button>
-                      ))}
+          {/* UPLOAD TAB */}
+          {activeTab === 'upload' && (
+             <div className="space-y-4 pt-2 text-center">
+                <div className="w-16 h-16 bg-blue-900/30 rounded-full mx-auto flex items-center justify-center mb-2 border border-blue-500/50">
+                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                </div>
+                <p className="text-[10px] text-gray-400 leading-relaxed px-4">
+                    Carica file audio (mp3, wav, ogg) dal tuo dispositivo.<br/>
+                    <span className="text-gray-600 italic">I file rimangono locali e non vengono caricati su server.</span>
+                </p>
+                
+                <label className="block w-full cursor-pointer">
+                  <input type="file" accept="audio/*" onChange={handleFileUpload} className="hidden" />
+                  <div className="w-full py-3 bg-blue-700 hover:bg-blue-600 rounded text-xs font-bold uppercase tracking-wider shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
+                     <span>Seleziona File</span>
                   </div>
-                  <div className="h-[1px] bg-white/5 w-full"></div>
-                  <div className="space-y-1">
-                      {filteredStations.slice(0, 10).map(s => (
-                          <div key={s.id} onClick={() => onSelectStation(s)} className="p-2 hover:bg-white/10 rounded cursor-pointer flex justify-between items-center">
-                              <span className="text-xs font-bold text-gray-300">{s.name}</span>
-                              <span className="text-[9px] px-1 rounded bg-white/5 text-gray-500">{s.genre}</span>
-                          </div>
-                      ))}
-                  </div>
-              </div>
+                </label>
+             </div>
           )}
 
           {/* ADD URL TAB */}
@@ -140,7 +135,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ stations, onSelectStation, 
                         type="text" 
                         value={newUrl}
                         onChange={(e) => setNewUrl(e.target.value)}
-                        placeholder="https://stream.example.com/audio.mp3"
+                        placeholder="https://..."
                         className="w-full bg-[#222] border border-[#333] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500"
                       />
                   </div>
@@ -153,15 +148,12 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ stations, onSelectStation, 
               </div>
           )}
 
-          {/* LINK/YOUTUBE TAB */}
-          {activeTab === 'yt' && (
+          {/* LINK (YT) TAB */}
+          {activeTab === 'link' && (
               <div className="space-y-4 pt-2 text-center">
-                  <div className="w-12 h-12 bg-red-600 rounded-full mx-auto flex items-center justify-center mb-2 shadow-[0_0_15px_rgba(220,38,38,0.5)]">
-                     <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill="black"></polygon></svg>
-                  </div>
-                  <p className="text-[10px] text-gray-400 leading-relaxed px-4">
-                      Inserisci URL diretto audio (mp3, aac, m3u).<br/>
-                      <span className="text-red-400 opacity-70 italic">Link YouTube video non supportati.</span>
+                  <p className="text-[10px] text-gray-400 leading-relaxed px-4 mb-2">
+                      Aggiungi stream web diretto.<br/>
+                      <span className="text-red-400 opacity-70 italic">Link YouTube video non supportati nativamente.</span>
                   </p>
                   <input 
                     type="text" 
@@ -171,10 +163,15 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ stations, onSelectStation, 
                     className="w-full bg-[#222] border border-[#333] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500"
                   />
                   <button 
-                    onClick={handleYtAdd}
-                    className="w-full py-2 bg-red-700 hover:bg-red-600 rounded text-xs font-bold uppercase tracking-wider shadow-lg transition-all active:scale-95"
+                    onClick={() => {
+                       if(ytUrl) {
+                          onAddStation('Web Stream', ytUrl, 'Stream', 'Web');
+                          setYtUrl('');
+                       }
+                    }}
+                    className="w-full py-2 bg-red-900/50 hover:bg-red-800/50 border border-red-800 rounded text-xs font-bold uppercase tracking-wider shadow-lg transition-all active:scale-95"
                   >
-                      Load Stream
+                      Add Link
                   </button>
               </div>
           )}
