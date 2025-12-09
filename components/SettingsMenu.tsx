@@ -17,7 +17,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
   currentTexture,
   onSetTexture
 }) => {
-  const [activeTab, setActiveTab] = useState<'skin' | 'upload' | 'add' | 'yt'>('skin');
+  const [activeTab, setActiveTab] = useState<'skin' | 'upload' | 'add' | 'link'>('skin');
   
   // Add Form State
   const [newName, setNewName] = useState('');
