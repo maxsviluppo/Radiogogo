@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { RADIO_STATIONS } from './constants';
 import { RadioStation, PlayerState, VisualizerMode, TextureMode } from './types';
@@ -174,6 +175,11 @@ const App: React.FC = () => {
       handleSelectStation(newStation);
   };
 
+  const handleReorderFavorites = (newOrder: string[]) => {
+      setFavorites(newOrder);
+      localStorage.setItem('my_favorites', JSON.stringify(newOrder));
+  };
+
   const getTextureStyles = () => {
     switch(textureMode) {
       case 'Cyberpunk': return "bg-black md:rounded-none md:border-2 md:border-cyan-500 shadow-[0_0_30px_rgba(6,182,212,0.3)]";
@@ -223,6 +229,7 @@ const App: React.FC = () => {
                                 onSelectStation={handleSelectStation}
                                 onAddStation={() => {}} 
                                 onDeleteStation={() => {}}
+                                onReorderFavorites={handleReorderFavorites}
                                 isPlaying={playerState.isPlaying}
                                 isCompact={true}
                               />
