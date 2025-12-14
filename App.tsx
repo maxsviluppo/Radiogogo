@@ -370,8 +370,6 @@ const App: React.FC = () => {
                              onDeleteStation={handleDeleteStation}
                              currentTexture={textureMode}
                              onSetTexture={setTextureMode}
-                             eqValues={eqValues}
-                             onEqChange={handleEqChange}
                              onResetStations={handleResetStations}
                              onClearOffline={handleClearOffline}
                         />

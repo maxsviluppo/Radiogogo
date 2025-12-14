@@ -8,8 +8,6 @@ interface SettingsMenuProps {
   onDeleteStation?: (id: string) => void;
   currentTexture: TextureMode;
   onSetTexture: (texture: TextureMode) => void;
-  eqValues?: { bass: number; mid: number; treble: number };
-  onEqChange?: (band: 'bass' | 'mid' | 'treble', value: number) => void;
   onResetStations?: () => void;
   onClearOffline?: () => void;
 }
@@ -21,12 +19,10 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
   onDeleteStation,
   currentTexture,
   onSetTexture,
-  eqValues,
-  onEqChange,
   onResetStations,
   onClearOffline
 }) => {
-  const [activeTab, setActiveTab] = useState<'eq' | 'skin' | 'data' | 'local' | 'add' | 'link'>('eq');
+  const [activeTab, setActiveTab] = useState<'skin' | 'data' | 'local' | 'add' | 'link'>('skin');
   
   const [newName, setNewName] = useState('');
   const [newUrl, setNewUrl] = useState('');
@@ -61,47 +57,6 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
     { id: 'Retro', name: 'Retro Gold', color: '#3e2723' },
   ];
 
-  const renderMixerFader = (label: string, value: number, onChange: (val: number) => void, color: string) => (
-      <div className="flex flex-col items-center h-48 w-full group">
-          <div className="mb-2 text-[10px] font-mono text-gray-500 font-bold tracking-widest">{value > 0 ? `+${value}` : value}dB</div>
-          <div className="relative h-full w-full flex justify-center">
-              <div className="absolute top-0 bottom-0 w-2 bg-[#000] rounded-full border border-gray-800 shadow-[inset_0_0_5px_rgba(0,0,0,1)]"></div>
-              <div className="absolute top-0 bottom-0 w-[1px] bg-white/10 z-0"></div>
-              
-              <div 
-                  className="absolute bottom-0 w-1 rounded-full transition-all duration-75 opacity-60"
-                  style={{
-                      height: `${((value + 12) / 24) * 100}%`,
-                      backgroundColor: color,
-                      boxShadow: `0 0 10px ${color}`
-                  }}
-              ></div>
-
-              <input
-                type="range"
-                min="-12"
-                max="12"
-                step="1"
-                value={value}
-                onChange={(e) => onChange(parseInt(e.target.value))}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 appearance-none"
-                style={{ WebkitAppearance: 'slider-vertical' }}
-              />
-
-              <div 
-                 className="absolute w-8 h-5 bg-[#1a1a1a] border border-gray-600 rounded-sm shadow-lg pointer-events-none z-10 flex items-center justify-center transition-all duration-75 group-hover:border-white/50"
-                 style={{ bottom: `calc(${((value + 12) / 24) * 100}% - 10px)` }}
-              >
-                  <div className="w-full h-[1px] bg-white opacity-50"></div>
-                  <div className="absolute w-full h-full opacity-20" style={{backgroundColor: color}}></div>
-              </div>
-          </div>
-          <div className="mt-3 text-[9px] font-bold text-gray-400 uppercase tracking-widest border border-gray-800 px-2 py-0.5 rounded bg-black/40">
-              {label}
-          </div>
-      </div>
-  );
-
   return (
     <div className="w-full h-full bg-[#111] text-white font-sans flex flex-col overflow-hidden">
       <div className="bg-gradient-to-b from-[#222] to-[#111] border-b border-white/10 p-2 shrink-0">
@@ -109,7 +64,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
       </div>
 
       <div className="flex border-b border-white/10 bg-[#0a0a0a] overflow-x-auto no-scrollbar shrink-0">
-          {['eq', 'skin', 'data', 'local', 'add', 'link'].map(tab => (
+          {['skin', 'data', 'local', 'add', 'link'].map(tab => (
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
@@ -121,37 +76,6 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
       </div>
 
       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar touch-pan-y">
-          {activeTab === 'eq' && eqValues && onEqChange && (
-              <div className="h-full flex flex-col pt-2">
-                  <div className="flex items-center justify-between mb-4 px-2">
-                      <span className="text-[10px] text-gray-400 uppercase tracking-widest">Master EQ</span>
-                      <div className="flex gap-1">
-                          <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></div>
-                          <span className="text-[8px] text-green-500 font-mono">ACTIVE</span>
-                      </div>
-                  </div>
-                  
-                  <div className="flex justify-between gap-4 px-2 pb-4 bg-[#080808] border border-[#222] rounded-lg p-4 shadow-inner">
-                      {renderMixerFader("LOW", eqValues.bass, (v) => onEqChange('bass', v), '#ef4444')}
-                      {renderMixerFader("MID", eqValues.mid, (v) => onEqChange('mid', v), '#fbbf24')}
-                      {renderMixerFader("HIGH", eqValues.treble, (v) => onEqChange('treble', v), '#3b82f6')}
-                  </div>
-                  
-                  <div className="mt-4 text-center">
-                      <button 
-                         onClick={() => {
-                             onEqChange('bass', 0);
-                             onEqChange('mid', 0);
-                             onEqChange('treble', 0);
-                         }}
-                         className="px-4 py-1.5 bg-[#222] hover:bg-[#333] border border-[#333] rounded text-[9px] text-gray-400 font-bold uppercase tracking-widest transition-all active:scale-95"
-                      >
-                          Reset Flat
-                      </button>
-                  </div>
-              </div>
-          )}
-
           {activeTab === 'skin' && (
              <div className="space-y-4 pt-2">
                 <p className="text-[10px] text-gray-400 text-center mb-4">Seleziona Texture Dispositivo</p>
@@ -201,7 +125,6 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
               </div>
           )}
 
-          {/* UPDATED LOCAL TAB */}
           {activeTab === 'local' && (
              <div className="flex flex-col h-full pt-2">
                 <div className="text-center mb-4 shrink-0">
