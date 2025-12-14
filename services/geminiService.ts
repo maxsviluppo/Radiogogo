@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { RadioStation } from "../types";
 
@@ -37,20 +38,21 @@ export const getStationVibe = async (station: RadioStation): Promise<string> => 
   // Fallback if no API Key (Offline Mode)
   if (!ai) {
     const fallbacks = [
-      `Vibes: ${station.genre} pure energy.`,
-      `Mode: ${station.country} underground.`,
-      `Signal: Crystal clear audio.`,
-      `Atmosphere: Deep & Resonant.`
+      "SIGNAL: OPTIMAL // UPLINK ESTABLISHED",
+      "VIBE DETECTED: NEON NIGHTS",
+      "SYSTEM: AUDIO STREAM SYNCHRONIZED",
+      "MOOD: ELECTRIC DREAMS DETECTED"
     ];
     return fallbacks[Math.floor(Math.random() * fallbacks.length)];
   }
 
   try {
     const prompt = `
-      Genera una descrizione brevissima (max 10 parole), suggestiva e "cool"
-      per una web radio chiamata "${station.name}" (${station.genre}).
-      Tono: Cyberpunk/Futuristico.
-      Lingua: Italiano.
+      Sei un'interfaccia futuristica di una radio cyberpunk.
+      Genera una frase di stato "System Log" molto breve (massimo 6 parole) basata sul genere "${station.genre}".
+      Stile: Tecnico, Criptico, Atmosferico, Sci-Fi.
+      Esempi: "ANALYZING BASS FREQUENCIES...", "UPLINK SECURE: JAZZ PROTOCOL", "DETECTING HIGH ENERGY WAVES".
+      Lingua: Inglese Tecnico o Italiano Tecnico.
       Nessuna virgoletta.
     `;
 
@@ -59,9 +61,9 @@ export const getStationVibe = async (station: RadioStation): Promise<string> => 
       contents: prompt,
     });
 
-    return response.text || "Segnale agganciato...";
+    return response.text?.trim().toUpperCase() || "SYSTEM: ONLINE";
   } catch (error) {
     console.warn("AI Request Failed.");
-    return "Connessione neurale instabile...";
+    return "LINK: RE-ESTABLISHING...";
   }
 };

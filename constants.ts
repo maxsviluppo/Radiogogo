@@ -94,6 +94,62 @@ export const RADIO_STATIONS: RadioStation[] = [
     logo: 'https://api.dicebear.com/7.x/initials/svg?seed=RAI1&backgroundColor=0284c7'
   },
 
+  // --- GENRE SPECIALS (Latin, Blues, Jazz) ---
+  {
+    id: 'gn-1',
+    name: '181.fm Bachata',
+    url: 'https://listen.181fm.com/181-bachata_128k.mp3',
+    genre: 'Bachata',
+    country: 'Global',
+    color: '#be123c',
+    logo: 'https://api.dicebear.com/7.x/initials/svg?seed=BAC&backgroundColor=be123c'
+  },
+  {
+    id: 'gn-2',
+    name: '181.fm Salsa',
+    url: 'https://listen.181fm.com/181-salsa_128k.mp3',
+    genre: 'Salsa',
+    country: 'Global',
+    color: '#c2410c',
+    logo: 'https://api.dicebear.com/7.x/initials/svg?seed=SAL&backgroundColor=c2410c'
+  },
+  {
+    id: 'gn-3',
+    name: '181.fm True Blues',
+    url: 'https://listen.181fm.com/181-blues_128k.mp3',
+    genre: 'Blues',
+    country: 'USA',
+    color: '#1e3a8a',
+    logo: 'https://api.dicebear.com/7.x/initials/svg?seed=BLU&backgroundColor=1e3a8a'
+  },
+  {
+    id: 'gn-4',
+    name: 'Radio Swiss Jazz',
+    url: 'https://stream.srg-ssr.ch/m/rsj/mp3_128',
+    genre: 'Jazz / Swing',
+    country: 'Switzerland',
+    color: '#78350f',
+    logo: 'https://api.dicebear.com/7.x/initials/svg?seed=SWJ&backgroundColor=78350f'
+  },
+  {
+    id: 'gn-5',
+    name: 'ABC Jazz',
+    url: 'https://live-radio01.mediahubaustralia.com/2JAZ/mp3/',
+    genre: 'Modern Jazz',
+    country: 'Australia',
+    color: '#065f46',
+    logo: 'https://api.dicebear.com/7.x/initials/svg?seed=ABC&backgroundColor=065f46'
+  },
+  {
+    id: 'gn-6',
+    name: '181.fm Reggae',
+    url: 'https://listen.181fm.com/181-reggae_128k.mp3',
+    genre: 'Reggae Roots',
+    country: 'Jamaica/Global',
+    color: '#15803d',
+    logo: 'https://api.dicebear.com/7.x/initials/svg?seed=REG&backgroundColor=15803d'
+  },
+
   // --- UK ---
   {
     id: 'uk-1',

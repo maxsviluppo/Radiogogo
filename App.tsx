@@ -1,11 +1,12 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { RADIO_STATIONS } from './constants';
-import { RadioStation, PlayerState, VisualizerMode, TextureMode } from './types';
+import { RadioStation, PlayerState, TextureMode } from './types';
 import StationList from './components/StationList';
 import Controls from './components/Controls';
-import AudioVisualizer from './components/AudioVisualizer';
 import SettingsMenu from './components/SettingsMenu';
+import AudioVisualizer from './components/AudioVisualizer';
+import Equalizer from './components/Equalizer';
 import { getStationVibe } from './services/geminiService';
 
 const App: React.FC = () => {
@@ -29,150 +30,99 @@ const App: React.FC = () => {
   });
   
   const [viewMode, setViewMode] = useState<'player' | 'menu' | 'settings'>('player'); 
-  const [visualizerMode, setVisualizerMode] = useState<VisualizerMode>('bars');
-  const [textureMode, setTextureMode] = useState<TextureMode>('iPod');
-  const [stationVibe, setStationVibe] = useState<string>("Loading vibes...");
-  const [wakeLock, setWakeLock] = useState<any>(null);
+  const [textureMode, setTextureMode] = useState<TextureMode>('Cyberpunk'); 
+  const [currentVibe, setCurrentVibe] = useState<string>("SYSTEM: READY");
+  const [showEq, setShowEq] = useState(false);
+  
+  // EQ State
+  const [eqValues, setEqValues] = useState({ bass: 0, mid: 0, treble: 0 });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
 
-  // --- AI VIBE ---
-  useEffect(() => {
-    let isMounted = true;
-    setStationVibe("Scanning frequencies...");
-    getStationVibe(currentStation).then(vibe => {
-      if (isMounted) setStationVibe(vibe);
-    });
-    return () => { isMounted = false; };
-  }, [currentStation]);
+  // EQ Audio Nodes Refs
+  const bassFilterRef = useRef<BiquadFilterNode | null>(null);
+  const midFilterRef = useRef<BiquadFilterNode | null>(null);
+  const trebleFilterRef = useRef<BiquadFilterNode | null>(null);
 
   // --- AUDIO SETUP ---
   const initAudioContext = useCallback(() => {
-    if (!audioRef.current || audioContextRef.current) return;
+    if (!audioRef.current) return;
+    
+    // Resume context if suspended (browser autoplay policy)
+    if (audioContextRef.current?.state === 'suspended') {
+        audioContextRef.current.resume().catch(console.warn);
+    }
+
+    if (audioContextRef.current) return; // Already initialized
+
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       const ctx = new AudioContextClass();
+      
       const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.8;
-      const source = ctx.createMediaElementSource(audioRef.current);
-      source.connect(analyser);
-      analyser.connect(ctx.destination);
+      analyser.fftSize = 512; 
+      analyser.smoothingTimeConstant = 0.85; 
+
+      // EQ Nodes
+      const bassNode = ctx.createBiquadFilter();
+      bassNode.type = 'lowshelf';
+      bassNode.frequency.value = 200;
+      bassNode.gain.value = eqValues.bass;
+
+      const midNode = ctx.createBiquadFilter();
+      midNode.type = 'peaking';
+      midNode.frequency.value = 1000;
+      midNode.Q.value = 1;
+      midNode.gain.value = eqValues.mid;
+
+      const trebleNode = ctx.createBiquadFilter();
+      trebleNode.type = 'highshelf';
+      trebleNode.frequency.value = 3000;
+      trebleNode.gain.value = eqValues.treble;
+
+      bassFilterRef.current = bassNode;
+      midFilterRef.current = midNode;
+      trebleFilterRef.current = trebleNode;
+
+      // Connect Source safely
+      try {
+         const source = ctx.createMediaElementSource(audioRef.current);
+         source.connect(bassNode);
+         bassNode.connect(midNode);
+         midNode.connect(trebleNode);
+         trebleNode.connect(analyser);
+         analyser.connect(ctx.destination);
+      } catch (e) {
+         // If media element source already connected, just ignore
+      }
+
       audioContextRef.current = ctx;
       analyserRef.current = analyser;
       setAnalyserNode(analyser);
-    } catch (e) { console.warn("AudioContext error", e); }
-  }, []);
 
-  // --- WAKE LOCK ---
-  useEffect(() => {
-    const requestLock = async () => {
-       if ('wakeLock' in navigator && playerState.isPlaying) {
-         try { const l = await (navigator as any).wakeLock.request('screen'); setWakeLock(l); } catch(e){}
-       } else if (wakeLock) {
-         wakeLock.release().catch(() => {}); setWakeLock(null);
-       }
-    };
-    requestLock();
-    return () => { if(wakeLock) wakeLock.release().catch(()=>{}); };
-  }, [playerState.isPlaying]);
+    } catch (e) { console.warn("AudioContext init warning:", e); }
+  }, [eqValues]); 
 
-  // --- AUDIO LISTENERS ---
-  useEffect(() => {
-    audioRef.current = new Audio();
-    audioRef.current.crossOrigin = "anonymous";
-    const audio = audioRef.current;
-    
-    const onWaiting = () => setPlayerState(p => ({ ...p, isLoading: true, error: null }));
-    const onPlaying = () => {
-        setPlayerState(p => ({ ...p, isLoading: false, isPlaying: true, error: null }));
-        if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
-    };
-    const onError = () => setPlayerState(p => ({ ...p, isLoading: false, isPlaying: false, error: "Stream Offline" }));
-
-    audio.addEventListener('waiting', onWaiting);
-    audio.addEventListener('playing', onPlaying);
-    audio.addEventListener('error', onError);
-
-    return () => {
-      audio.pause();
-      audio.src = "";
-    };
-  }, []);
-
-  // --- HANDLERS ---
-  const handleSelectStation = useCallback((station: RadioStation) => {
-    setCurrentStation(station);
-    setViewMode('player'); 
-    
-    if (audioRef.current) {
-      setPlayerState(p => ({ ...p, isLoading: true, error: null }));
-      audioRef.current.src = station.url;
-      audioRef.current.load();
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => initAudioContext())
-          .catch(e => console.log("Autoplay blocked or stream error"));
-      }
-    }
-  }, [initAudioContext]);
-
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    initAudioContext();
-    if (playerState.isPlaying) {
-      audioRef.current.pause();
-      setPlayerState(p => ({ ...p, isPlaying: false }));
-    } else {
-      if (!audioRef.current.src || audioRef.current.src !== currentStation.url) {
-        audioRef.current.src = currentStation.url;
-      }
-      audioRef.current.play().catch(() => setPlayerState(p => ({...p, error: "Tap Play"})));
-    }
+  // --- HANDLE EQ CHANGE ---
+  const handleEqChange = (band: 'bass' | 'mid' | 'treble', value: number) => {
+      setEqValues(prev => ({ ...prev, [band]: value }));
+      if (band === 'bass' && bassFilterRef.current) bassFilterRef.current.gain.value = value;
+      else if (band === 'mid' && midFilterRef.current) midFilterRef.current.gain.value = value;
+      else if (band === 'treble' && trebleFilterRef.current) trebleFilterRef.current.gain.value = value;
   };
 
-  const changeStation = (direction: 'next' | 'prev') => {
-    const idx = stations.findIndex(s => s.id === currentStation.id);
-    let newIdx;
-    if (direction === 'next') newIdx = (idx + 1) % stations.length;
-    else newIdx = (idx - 1 + stations.length) % stations.length;
-    handleSelectStation(stations[newIdx]);
-  };
-
-  const handleCenterClick = () => {
-    if (viewMode === 'menu' || viewMode === 'settings') {
-        setViewMode('player');
-    } else {
-        // In player, toggle visualizer
-        const modes: VisualizerMode[] = ['bars', 'wave', 'orb', 'particles'];
-        const next = modes[(modes.indexOf(visualizerMode) + 1) % modes.length];
-        setVisualizerMode(next);
-    }
-  };
-
-  const handleAddCustomStation = (name: string, url: string, genre: string = 'Custom', country: string = 'User') => {
-      const newStation: RadioStation = {
-          id: `custom-${Date.now()}`,
-          name: name || 'Unknown Station',
-          url: url,
-          genre: genre,
-          country: country,
-          color: '#ffffff',
-          logo: ''
-      };
-      
-      const newStations = [...stations, newStation];
-      setStations(newStations);
-      
-      if (!url.startsWith('blob:')) {
-         const customStations = newStations.filter(s => s.id.startsWith('custom-'));
-         localStorage.setItem('my_custom_stations', JSON.stringify(customStations));
-      }
-      handleSelectStation(newStation);
+  // --- FAVORITES LOGIC ---
+  const toggleFavorite = (id: string) => {
+    setFavorites(prev => {
+      const newFavs = prev.includes(id) 
+        ? prev.filter(fid => fid !== id)
+        : [...prev, id];
+      localStorage.setItem('my_favorites', JSON.stringify(newFavs));
+      return newFavs;
+    });
   };
 
   const handleReorderFavorites = (newOrder: string[]) => {
@@ -180,122 +130,216 @@ const App: React.FC = () => {
       localStorage.setItem('my_favorites', JSON.stringify(newOrder));
   };
 
-  const getTextureStyles = () => {
-    switch(textureMode) {
-      case 'Cyberpunk': return "bg-black md:rounded-none md:border-2 md:border-cyan-500 shadow-[0_0_30px_rgba(6,182,212,0.3)]";
-      case 'Retro': return "bg-gradient-to-br from-[#3e2723] to-[#1a1110] md:rounded-[10px] md:border-4 md:border-[#5d4037] shadow-[0_0_0_2px_#222]";
-      case 'iPod': default: return "bg-gradient-to-b from-[#4a4a4a] via-[#2b2b2b] to-[#1a1a1a] md:rounded-[40px] md:shadow-[0_0_0_2px_#111,0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.2)]";
+  // --- PLAYBACK ---
+  const togglePlay = async () => {
+    if (!audioRef.current) return;
+    initAudioContext();
+
+    if (playerState.isPlaying) {
+      audioRef.current.pause();
+      setPlayerState(p => ({ ...p, isPlaying: false }));
+    } else {
+      try {
+        await audioRef.current.play();
+        setPlayerState(p => ({ ...p, isPlaying: true, error: null }));
+        getStationVibe(currentStation).then(setCurrentVibe);
+      } catch (e: any) {
+        // Ignore AbortError which happens on rapid skipping
+        if (e.name !== 'AbortError') {
+             console.error("Playback error:", e);
+             setPlayerState(p => ({ ...p, isPlaying: false, error: "Stream unavailable" }));
+        }
+      }
     }
   };
 
+  const changeStation = (station: RadioStation) => {
+    setCurrentStation(station);
+    setPlayerState(p => ({ ...p, isLoading: true, isPlaying: false, error: null }));
+    setCurrentVibe("TUNING...");
+    
+    // Use timeout to allow React to update state and Audio element to reset
+    setTimeout(() => {
+        if(audioRef.current) {
+            audioRef.current.load(); // Force reload for new source
+            togglePlay();
+        }
+    }, 50);
+  };
+
+  const handleNext = () => {
+      const idx = stations.findIndex(s => s.id === currentStation.id);
+      const next = stations[(idx + 1) % stations.length];
+      changeStation(next);
+  };
+
+  const handlePrev = () => {
+      const idx = stations.findIndex(s => s.id === currentStation.id);
+      const prev = stations[(idx - 1 + stations.length) % stations.length];
+      changeStation(prev);
+  };
+
+  const handleAddStation = (name: string, url: string) => {
+      const newStation: RadioStation = {
+          id: `custom-${Date.now()}`,
+          name,
+          url,
+          genre: 'Custom',
+          country: 'User',
+          color: '#ffffff',
+          logo: ''
+      };
+      const newStations = [...stations, newStation];
+      setStations(newStations);
+      localStorage.setItem('my_custom_stations', JSON.stringify(newStations.filter(s => s.id.startsWith('custom-'))));
+  };
+
+  // --- RENDER ---
   return (
-    <div className="flex h-screen w-full bg-[#000] items-center justify-center overflow-hidden font-sans select-none">
+    <div className="flex items-center justify-center min-h-[100dvh] bg-[#050505] p-2 sm:p-4 font-sans select-none overflow-hidden touch-none">
       
-      {/* Background */}
-      <div className="hidden md:block absolute inset-0 bg-neutral-900 z-0">
-          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_#333_0%,_#000_100%)]"></div>
-          {textureMode === 'Cyberpunk' && <div className="absolute inset-0 bg-[linear-gradient(rgba(0,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]"></div>}
+      {/* --- DEVICE SHELL (DARK 3D CHASSIS) --- */}
+      <div className="relative w-full max-w-[360px] sm:max-w-[370px] h-[95dvh] sm:h-[90vh] max-h-[820px] bg-gradient-to-b from-[#1a1a1a] via-[#0d0d0d] to-[#000000] rounded-[2.5rem] sm:rounded-[3rem] shadow-[0_0_0_1px_#333,0_30px_60px_rgba(0,0,0,0.9),inset_0_1px_1px_rgba(255,255,255,0.1)] overflow-hidden flex flex-col z-0 shrink-0">
+        
+        {/* Subtle Texture on Chassis */}
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white/10 to-transparent pointer-events-none"></div>
+
+        {/* --- SCREEN BEZEL & AREA --- */}
+        <div className="relative h-[55%] sm:h-[55%] bg-black mx-3 sm:mx-4 mt-4 sm:mt-6 rounded-t-xl overflow-hidden border border-[#222] shadow-[inset_0_0_15px_rgba(0,0,0,1)] z-10 flex flex-col">
+            
+            {/* Screen Glass Reflection (Top Right) */}
+            <div className="absolute top-0 right-0 w-2/3 h-1/3 bg-gradient-to-bl from-white/10 to-transparent pointer-events-none z-50 rounded-tr-xl"></div>
+
+            {/* Viewport Content */}
+            <div className="flex-1 flex flex-col relative z-20">
+                {/* Status Bar */}
+                <div className="h-6 bg-black/90 flex justify-between items-center px-3 pt-1 border-b border-white/5 relative z-30 shrink-0">
+                    <div className="flex gap-2 items-center">
+                       <div className={`w-1.5 h-1.5 rounded-full ${playerState.isPlaying ? 'bg-green-500 animate-pulse shadow-[0_0_5px_#22c55e]' : 'bg-red-500'}`}></div>
+                       <span className="text-[9px] text-gray-500 font-mono tracking-widest truncate max-w-[120px]">{currentVibe}</span>
+                    </div>
+                    <div className="text-[9px] text-gray-400 font-bold font-mono">
+                        {new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                    </div>
+                </div>
+
+                {/* Main Content Area */}
+                <div className="flex-1 relative overflow-hidden bg-black flex flex-col">
+                    {viewMode === 'menu' && (
+                        <StationList 
+                            stations={stations}
+                            currentStation={currentStation}
+                            favorites={favorites}
+                            onSelectStation={(s) => { changeStation(s); setViewMode('player'); }}
+                            onAddStation={handleAddStation}
+                            onDeleteStation={() => {}}
+                            onReorderFavorites={handleReorderFavorites}
+                            onToggleFavorite={toggleFavorite}
+                            isPlaying={playerState.isPlaying}
+                        />
+                    )}
+                    
+                    {viewMode === 'settings' && (
+                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                          <SettingsMenu 
+                             stations={stations}
+                             onSelectStation={() => {}}
+                             onAddStation={handleAddStation}
+                             currentTexture={textureMode}
+                             onSetTexture={setTextureMode}
+                             eqValues={eqValues}
+                             onEqChange={handleEqChange}
+                          />
+                        </div>
+                    )}
+
+                    {viewMode === 'player' && (
+                        <div className="flex flex-col h-full relative w-full">
+                             {/* Ambient Backlight */}
+                             <div 
+                                className="absolute inset-0 opacity-20 blur-3xl transition-colors duration-1000 z-0"
+                                style={{backgroundColor: currentStation.color}}
+                             ></div>
+
+                             {/* Visualizer Layer */}
+                             <div className="absolute inset-0 z-0 opacity-80 mix-blend-screen pointer-events-none">
+                                 <AudioVisualizer 
+                                    analyser={analyserNode}
+                                    isPlaying={playerState.isPlaying}
+                                    color={currentStation.color}
+                                    mode="wave"
+                                 />
+                             </div>
+
+                             {/* Info Layer (Text on top) */}
+                             {/* MODIFIED: Changed justify-center to justify-start and added pt-12 to move content higher */}
+                             <div className="relative z-20 flex flex-col items-center justify-start h-full pt-12 sm:pt-16 p-6 text-center">
+                                 <div className="bg-black/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)] max-w-[90%]">
+                                     <h1 className="text-xl sm:text-2xl font-display font-bold text-white mb-2 drop-shadow-md truncate w-full text-glow">
+                                         {currentStation.name}
+                                     </h1>
+                                     <div className="h-[1px] w-12 bg-white/20 mx-auto mb-2"></div>
+                                     <p className="text-xs text-blue-300 font-mono tracking-widest uppercase mb-1">{currentStation.genre}</p>
+                                     <p className="text-[10px] text-gray-500">{currentStation.country}</p>
+                                     {favorites.includes(currentStation.id) && (
+                                         <span className="text-pink-500 text-[10px] mt-2 block font-bold tracking-wider">♥ FAVORITE</span>
+                                     )}
+                                 </div>
+                             </div>
+                        </div>
+                    )}
+
+                    {/* EQ Popup */}
+                    {showEq && (
+                        <div className="absolute inset-0 z-50">
+                            <Equalizer 
+                                bands={[
+                                    { frequency: 60, label: 'LOW', value: eqValues.bass, type: 'lowshelf' },
+                                    { frequency: 1000, label: 'MID', value: eqValues.mid, type: 'peaking' },
+                                    { frequency: 3000, label: 'HIGH', value: eqValues.treble, type: 'highshelf' },
+                                ]}
+                                onChange={(idx, val) => {
+                                    if(idx===0) handleEqChange('bass', val);
+                                    if(idx===1) handleEqChange('mid', val);
+                                    if(idx===2) handleEqChange('treble', val);
+                                }}
+                                onClose={() => setShowEq(false)}
+                                accentColor={currentStation.color}
+                            />
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+
+        {/* --- CONTROLS AREA --- */}
+        <div className="flex-1 relative z-20 flex items-center justify-center">
+            <Controls 
+               isPlaying={playerState.isPlaying}
+               onTogglePlay={togglePlay}
+               onNext={handleNext}
+               onPrev={handlePrev}
+               onMenu={() => setViewMode(m => m === 'menu' ? 'player' : 'menu')}
+               onCenter={() => setShowEq(prev => !prev)}
+               onSettings={() => setViewMode(m => m === 'settings' ? 'player' : 'settings')}
+            />
+        </div>
+
       </div>
 
-      {/* DEVICE */}
-      <div className={`relative z-10 w-full h-full md:max-w-[380px] md:h-[90vh] md:max-h-[700px] p-0 md:p-6 flex flex-col items-center gap-0 md:gap-8 transition-all duration-500 ${getTextureStyles()}`}>
-          
-          {/* SCREEN */}
-          <div className={`w-full h-[50vh] md:h-auto md:aspect-[4/3] bg-black overflow-hidden relative border-b-4 md:border-[4px] border-[#1a1a1a]
-             ${textureMode === 'Retro' ? 'md:rounded-none border-[#8d6e63]' : 'md:rounded-lg'}
-             ${textureMode === 'Cyberpunk' ? 'border-cyan-900 shadow-[0_0_10px_rgba(0,255,255,0.2)]' : 'shadow-[inset_0_0_20px_rgba(0,0,0,1)]'}
-          `}>
-              <div className="absolute inset-0 flex flex-col">
-                  {/* Status Bar */}
-                  <div className={`h-8 md:h-6 flex items-center justify-between px-3 text-[10px] font-bold shrink-0
-                      ${textureMode === 'Cyberpunk' ? 'bg-cyan-950 text-cyan-400 border-b border-cyan-800' : 'bg-gradient-to-b from-[#222] to-[#111] text-gray-400 border-b border-white/10'}
-                  `}>
-                      <div className="flex items-center gap-2">
-                          {playerState.isPlaying ? <span className={`${textureMode==='Cyberpunk'?'text-cyan-300':'text-blue-400'} animate-pulse`}>▶ LIVE</span> : <span>❚❚ PAUSED</span>}
-                          <span>| {viewMode === 'player' ? 'NOW PLAYING' : viewMode.toUpperCase()}</span>
-                      </div>
-                      <div className="font-mono">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                  </div>
-
-                  {/* Content Area */}
-                  <div className="flex-1 relative overflow-hidden bg-[#050505]">
-                      
-                      {viewMode === 'menu' && (
-                          <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
-                              <StationList 
-                                stations={stations}
-                                currentStation={currentStation}
-                                favorites={favorites}
-                                onSelectStation={handleSelectStation}
-                                onAddStation={() => {}} 
-                                onDeleteStation={() => {}}
-                                onReorderFavorites={handleReorderFavorites}
-                                isPlaying={playerState.isPlaying}
-                                isCompact={true}
-                              />
-                          </div>
-                      )}
-
-                      {viewMode === 'settings' && (
-                          <div className="absolute inset-0 overflow-y-auto custom-scrollbar bg-[#111]">
-                              <SettingsMenu 
-                                stations={stations}
-                                onSelectStation={handleSelectStation}
-                                onAddStation={handleAddCustomStation}
-                                currentTexture={textureMode}
-                                onSetTexture={setTextureMode}
-                              />
-                          </div>
-                      )}
-
-                      {viewMode === 'player' && (
-                          <div className="absolute inset-0 flex flex-col p-4">
-                              {/* Station Info */}
-                              <div className="flex-1 flex flex-col items-center justify-center text-center space-y-2">
-                                  {playerState.isLoading ? (
-                                      <div className="animate-spin text-2xl">↻</div>
-                                  ) : (
-                                    <>
-                                        <div className="w-16 h-16 rounded bg-gradient-to-br from-gray-800 to-gray-900 shadow-lg border border-white/10 flex items-center justify-center mb-2">
-                                            <span className="text-2xl font-bold text-gray-500">{currentStation.name.substring(0,2).toUpperCase()}</span>
-                                        </div>
-                                        <h2 className="text-lg font-bold text-white tracking-wide">{currentStation.name}</h2>
-                                        <p className="text-xs text-blue-400 font-bold uppercase tracking-wider">{currentStation.genre}</p>
-                                        <p className="text-[10px] text-gray-500 italic mt-2 max-w-[80%]">{stationVibe}</p>
-                                        {playerState.error && <p className="text-red-500 text-xs font-bold mt-2 bg-red-900/20 px-2 py-1 rounded border border-red-900">{playerState.error}</p>}
-                                    </>
-                                  )}
-                              </div>
-
-                              {/* Visualizer Area */}
-                              <div className="h-20 w-full mt-4 bg-black/50 rounded border border-white/5 overflow-hidden">
-                                  <AudioVisualizer 
-                                      analyser={analyserNode} 
-                                      isPlaying={playerState.isPlaying}
-                                      color={textureMode === 'Cyberpunk' ? '#06b6d4' : (currentStation.color || '#3b82f6')}
-                                      mode={visualizerMode}
-                                  />
-                              </div>
-                          </div>
-                      )}
-                  </div>
-              </div>
-          </div>
-
-          {/* CONTROLS AREA */}
-          <div className="flex-1 w-full flex flex-col items-center justify-center relative">
-               <Controls 
-                  isPlaying={playerState.isPlaying}
-                  onTogglePlay={togglePlay}
-                  onNext={() => changeStation('next')}
-                  onPrev={() => changeStation('prev')}
-                  onMenu={() => setViewMode(prev => prev === 'menu' ? 'player' : 'menu')}
-                  onCenter={handleCenterClick}
-                  onSettings={() => setViewMode(prev => prev === 'settings' ? 'player' : 'settings')}
-               />
-          </div>
-
-      </div>
+      {/* Hidden Audio Element */}
+      <audio 
+         ref={audioRef} 
+         src={currentStation.url} 
+         crossOrigin="anonymous" 
+         preload="none"
+         onError={(e) => {
+             console.error("Audio Error Event", e);
+             setPlayerState(p => ({...p, isPlaying:false, error: 'Stream Offline'}));
+         }}
+         onPlaying={() => setPlayerState(p => ({...p, isLoading:false, isPlaying:true, error: null}))}
+         onWaiting={() => setPlayerState(p => ({...p, isLoading:true}))}
+      />
     </div>
   );
 };

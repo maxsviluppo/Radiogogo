@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="it">
   <head>
@@ -5,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>NeonStream Radio | AI Player</title>
     <meta name="description" content="Web Radio Player stile iPod Dark Mode con visualizzatore audio e integrazione AI.">
-    <!-- Tailwind CSS CDN (Keeping it simple for portability) -->
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -24,6 +25,64 @@
       .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
       .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
       .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
+      /* --- 3D FUTURE EFFECTS --- */
+      .scanline {
+        background: linear-gradient(
+          to bottom,
+          rgba(255,255,255,0),
+          rgba(255,255,255,0) 50%,
+          rgba(0,0,0,0.2) 50%,
+          rgba(0,0,0,0.2)
+        );
+        background-size: 100% 4px;
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        pointer-events: none;
+        z-index: 50;
+      }
+
+      .hologram-grid {
+        background-image: 
+          linear-gradient(rgba(0, 255, 255, 0.2) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 255, 0.2) 1px, transparent 1px);
+        background-size: 40px 40px;
+        width: 200%;
+        height: 200%;
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        transform: perspective(300px) rotateX(60deg) translateY(0);
+        animation: grid-move 10s linear infinite;
+        opacity: 0.3;
+        pointer-events: none;
+      }
+
+      @keyframes grid-move {
+        0% { transform: perspective(300px) rotateX(60deg) translateY(0); }
+        100% { transform: perspective(300px) rotateX(60deg) translateY(40px); }
+      }
+
+      .text-glow {
+        text-shadow: 0 0 5px rgba(0,255,255,0.5), 0 0 10px rgba(0,255,255,0.3);
+      }
+      
+      .text-3d {
+        text-shadow: 
+          0 1px 0 #ccc,
+          0 2px 0 #c9c9c9,
+          0 3px 0 #bbb,
+          0 4px 0 #b9b9b9,
+          0 5px 0 #aaa,
+          0 6px 1px rgba(0,0,0,.1),
+          0 0 5px rgba(0,0,0,.1),
+          0 1px 3px rgba(0,0,0,.3),
+          0 3px 5px rgba(0,0,0,.2),
+          0 5px 10px rgba(0,0,0,.25),
+          0 10px 10px rgba(0,0,0,.2),
+          0 20px 20px rgba(0,0,0,.15),
+          0 0 20px rgba(0,255,255,0.5); /* Neon glow added */
+      }
 
       @keyframes marquee {
         0% { transform: translateX(0); }

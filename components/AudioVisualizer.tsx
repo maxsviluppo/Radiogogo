@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { AudioVisualizerProps } from '../types';
 
@@ -5,158 +6,134 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ analyser, isPlaying, 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
 
-  // Render Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const render = () => {
-      const width = canvas.width;
-      const height = canvas.height;
-      const time = Date.now() / 1000;
+    // Helper to resize canvas
+    const handleResize = () => {
+        if (!canvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        
+        // Only update if size actually changed to avoid flicker
+        if(canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+    };
 
+    // Initial size
+    handleResize();
+
+    // Listen for resize
+    window.addEventListener('resize', handleResize);
+
+    // Phase trackers for waves
+    let phase = 0;
+
+    const render = () => {
+      // Dimensions might change on mobile due to address bar, etc. 
+      // We rely on resize event mostly, but using getBoundingClientRect in render loop is expensive.
+      // Use logic vars
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      const height = canvas.height / (window.devicePixelRatio || 1);
+      
       ctx.clearRect(0, 0, width, height);
 
-      let dataArray: Uint8Array | null = null;
-      
-      // Ottieni dati reali se l'analizzatore è fornito
+      let averageVolume = 0;
+
+      // DATA ACQUISITION
       if (analyser && isPlaying) {
         const bufferLength = analyser.frequencyBinCount;
-        dataArray = new Uint8Array(bufferLength);
-        if (mode === 'wave') {
-          // Cast a 'any' per risolvere il conflitto di tipi tra Uint8Array<ArrayBufferLike> e Uint8Array<ArrayBuffer>
-          analyser.getByteTimeDomainData(dataArray as any);
-        } else {
-          analyser.getByteFrequencyData(dataArray as any);
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteFrequencyData(dataArray);
+
+        // Calculate Average Volume (Bass focus)
+        let sum = 0;
+        const limit = Math.floor(bufferLength * 0.3); 
+        for (let i = 0; i < limit; i++) {
+            sum += dataArray[i];
         }
+        averageVolume = sum / (limit || 1);
+      } else if (!isPlaying) {
+          // Idle movement
+          averageVolume = 10 + Math.sin(Date.now() / 1000) * 5; 
       }
 
-      // Funzione helper per ottenere valore (reale o simulato)
-      const getValue = (i: number, total: number) => {
-        if (dataArray && dataArray.length > 0) {
-           const spectrumUsage = 0.7; 
-           const index = Math.floor((i / total) * (dataArray.length * spectrumUsage));
-           const val = dataArray[index];
-           if (val > 0) return val;
-        }
-        
-        // Fallback simulato
-        if (!analyser || (dataArray && dataArray[0] === 0 && dataArray[10] === 0)) {
-           const noise = Math.sin(i * 0.5 + time * 3) * 30;
-           const beat = Math.pow(Math.sin(time * 2 + (i % 2)), 8) * 80; 
-           const flow = Math.sin(i * 0.1 - time * 2) * 40;
-           return Math.max(0, 40 + noise + flow + (i < total / 3 ? beat : 0));
-        }
-        return 0;
-      };
+      // Normalizing volume
+      const volNorm = Math.min(averageVolume / 255, 1);
+      
+      if (mode === 'wave') {
+          // LIQUID GLASS EFFECT
+          // Increase speed with volume
+          phase += 0.05 + (volNorm * 0.1);
 
-      ctx.lineCap = 'round';
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = color;
+          const layers = [
+              { amp: 20, speed: 1.0, opacity: 0.3, offset: 0 }, // Background
+              { amp: 35, speed: 0.6, opacity: 0.5, offset: Math.PI }, // Middle
+              { amp: 50, speed: 0.8, opacity: 0.8, offset: Math.PI / 2 } // Front (Glass)
+          ];
 
-      if (!isPlaying) {
-        // FLATLINE
-        ctx.beginPath();
-        ctx.moveTo(0, height / 2);
-        ctx.lineTo(width, height / 2);
-        ctx.strokeStyle = '#334155';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      } else if (mode === 'bars') {
-        // CLASSIC NEON BARS
-        const bars = 64;
-        const barWidth = (width / bars) * 0.6;
-        const gap = (width / bars) * 0.4;
+          layers.forEach((layer, index) => {
+              ctx.beginPath();
+              
+              const currentPhase = phase * layer.speed + layer.offset;
+              const baseHeight = height * 0.8; // Water level
+              
+              // Dynamic amplitude based on volume
+              const amplitude = layer.amp + (volNorm * height * 0.3);
+
+              ctx.moveTo(0, height);
+
+              for (let x = 0; x <= width; x += 5) {
+                  const y = baseHeight + Math.sin((x / width) * Math.PI * 4 + currentPhase) * -amplitude;
+                  ctx.lineTo(x, y);
+              }
+
+              ctx.lineTo(width, height);
+              ctx.lineTo(0, height);
+              ctx.closePath();
+
+              // Gradient
+              const gradient = ctx.createLinearGradient(0, baseHeight - amplitude, 0, height);
+              gradient.addColorStop(0, hexToRgba(color, layer.opacity));
+              gradient.addColorStop(1, hexToRgba(color, 0.1));
+              
+              ctx.fillStyle = gradient;
+              ctx.fill();
+
+              // GLASS HIGHLIGHT (Only on top layer or strongly visible ones)
+              if (index === layers.length - 1) {
+                  ctx.lineWidth = 3;
+                  ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + volNorm * 0.6})`; // Shiny white edge
+                  ctx.shadowColor = color;
+                  ctx.shadowBlur = 15; // Glow
+                  ctx.stroke();
+                  ctx.shadowBlur = 0; // Reset
+              }
+          });
+
+      } else {
+        // --- BARS MODE FALLBACK ---
+        const bars = 40;
+        const gap = 4;
+        const barWidth = (width - ((bars - 1) * gap)) / bars;
 
         for (let i = 0; i < bars; i++) {
-          const val = getValue(i, bars);
-          const barHeight = (val / 255) * height;
-          const x = i * (barWidth + gap) + gap / 2;
-          const y = height - barHeight;
+            // Simulated or Real data would go here
+            const val = isPlaying ? (Math.random() * averageVolume * 1.5) : 10;
+            const barHeight = Math.min(height, (val / 255) * height);
+            const x = i * (barWidth + gap);
+            const y = height - barHeight;
 
-          const gradient = ctx.createLinearGradient(x, height, x, y);
-          gradient.addColorStop(0, color);
-          gradient.addColorStop(1, '#ffffff');
-
-          ctx.fillStyle = gradient;
-          ctx.fillRect(x, y, barWidth, barHeight);
-          
-          // Reflection
-          ctx.globalAlpha = 0.2;
-          ctx.fillRect(x, height, barWidth, barHeight * 0.3);
-          ctx.globalAlpha = 1.0;
-        }
-
-      } else if (mode === 'wave') {
-        // NEON WAVE
-        ctx.beginPath();
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = color;
-        const points = width / 2;
-        
-        for (let i = 0; i < points; i++) {
-          const val = getValue(i, points);
-          let y;
-          if (analyser && dataArray && dataArray.length > 0) {
-             const v = val / 128.0;
-             y = v * height / 2;
-          } else {
-             y = (height / 2) + Math.sin(i * 0.1 + time * 10) * (val * 0.5);
-          }
-
-          const x = (i / points) * width;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-
-      } else if (mode === 'orb') {
-        // PULSING ORB
-        const cx = width / 2;
-        const cy = height / 2;
-        const radius = 60;
-        const points = 50;
-        
-        ctx.beginPath();
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = color;
-        
-        for (let i = 0; i <= points; i++) {
-          const angle = (i / points) * Math.PI * 2;
-          const val = getValue(i % points, points);
-          const r = radius + (val / 255) * 50;
-          const x = cx + Math.cos(angle + time) * r;
-          const y = cy + Math.sin(angle + time) * r;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.stroke();
-        
-        // Center Glow
-        const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, radius * 1.5);
-        g.addColorStop(0, color);
-        g.addColorStop(1, 'transparent');
-        ctx.fillStyle = g;
-        ctx.globalAlpha = 0.4;
-        ctx.fill();
-        ctx.globalAlpha = 1.0;
-
-      } else if (mode === 'particles') {
-        // FLOATING PARTICLES
-        const particles = 50;
-        ctx.fillStyle = color;
-        for (let i = 0; i < particles; i++) {
-          const val = getValue(i, particles);
-          const x = ((i * 30 + time * 10) % width);
-          const y = height - ((time * 50 + i * 20) % height);
-          const size = (val / 255) * 6;
-          
-          ctx.beginPath();
-          ctx.arc(x, y, size, 0, Math.PI * 2);
-          ctx.fill();
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 10;
+            ctx.fillRect(x, y, barWidth, barHeight);
         }
       }
 
@@ -167,15 +144,28 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ analyser, isPlaying, 
 
     return () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      window.removeEventListener('resize', handleResize);
     };
   }, [isPlaying, color, mode, analyser]);
+
+  // Helper
+  const hexToRgba = (hex: string, alpha: number) => {
+    if (!hex) return `rgba(255,255,255,${alpha})`;
+    if (hex.startsWith('rgb')) return hex;
+    
+    let c = hex.substring(1).split('');
+    if (c.length === 3) c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+    
+    if (c.length !== 6) return `rgba(0, 255, 255, ${alpha})`;
+    
+    const num = parseInt(c.join(''), 16);
+    return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
+  };
 
   return (
     <canvas 
       ref={canvasRef} 
-      width={600} 
-      height={200} 
-      className="w-full h-full rounded-lg"
+      className="w-full h-full"
     />
   );
 };
