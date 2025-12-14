@@ -207,9 +207,6 @@ const App: React.FC = () => {
         {/* --- SCREEN BEZEL & AREA --- */}
         <div className="relative h-[55%] sm:h-[55%] bg-black mx-3 sm:mx-4 mt-4 sm:mt-6 rounded-t-xl overflow-hidden border border-[#222] shadow-[inset_0_0_15px_rgba(0,0,0,1)] z-10 flex flex-col">
             
-            {/* Screen Glass Reflection (Top Right) */}
-            <div className="absolute top-0 right-0 w-2/3 h-1/3 bg-gradient-to-bl from-white/10 to-transparent pointer-events-none z-50 rounded-tr-xl"></div>
-
             {/* Viewport Content */}
             <div className="flex-1 flex flex-col relative z-20 overflow-hidden">
                 {/* Status Bar */}
