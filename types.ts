@@ -10,7 +10,8 @@ export interface RadioStation {
   color: string;
   country: string;
   logo: string;
-  isFavorite?: boolean; // New optional property
+  isFavorite?: boolean; 
+  status?: 'online' | 'offline'; // New property for station health
 }
 
 export interface AudioVisualizerProps {

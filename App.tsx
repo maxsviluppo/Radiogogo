@@ -14,10 +14,19 @@ const App: React.FC = () => {
   const [stations, setStations] = useState<RadioStation[]>(() => {
     const saved = localStorage.getItem('my_custom_stations');
     if (saved) {
-      try { return [...RADIO_STATIONS, ...JSON.parse(saved)]; } catch (e) { return RADIO_STATIONS; }
+      try { 
+          // Merge saved with defaults to ensure we have structure, but prefer saved order if needed
+          // For simplicity, we append custom ones to defaults or use the saved full list
+          return JSON.parse(saved); 
+      } catch (e) { return RADIO_STATIONS; }
     }
     return RADIO_STATIONS;
   });
+
+  // Save stations whenever they change (to persist offline status or additions)
+  useEffect(() => {
+      localStorage.setItem('my_custom_stations', JSON.stringify(stations));
+  }, [stations]);
 
   const [favorites, setFavorites] = useState<string[]>(() => {
     const saved = localStorage.getItem('my_favorites');
@@ -130,6 +139,25 @@ const App: React.FC = () => {
       localStorage.setItem('my_favorites', JSON.stringify(newOrder));
   };
 
+  // --- DATA MANAGEMENT ---
+  const handleResetStations = () => {
+      if(window.confirm("Vuoi ripristinare la lista stazioni originale? Le radio custom verranno perse.")) {
+          setStations(RADIO_STATIONS);
+          setCurrentStation(RADIO_STATIONS[0]);
+          setViewMode('player');
+      }
+  };
+
+  const handleClearOffline = () => {
+      const workingStations = stations.filter(s => s.status !== 'offline');
+      if (workingStations.length === 0) {
+          alert("Attenzione: tutte le stazioni sembrano offline. Ripristino default.");
+          setStations(RADIO_STATIONS);
+      } else {
+          setStations(workingStations);
+      }
+  };
+
   // --- PLAYBACK ---
   const togglePlay = async () => {
     if (!audioRef.current) return;
@@ -147,10 +175,21 @@ const App: React.FC = () => {
         // Ignore AbortError which happens on rapid skipping
         if (e.name !== 'AbortError') {
              console.error("Playback error:", e);
-             setPlayerState(p => ({ ...p, isPlaying: false, error: "Stream unavailable" }));
+             handleStreamError();
         }
       }
     }
+  };
+
+  const handleStreamError = () => {
+      console.warn(`Station ${currentStation.name} is offline.`);
+      setPlayerState(p => ({ ...p, isPlaying: false, error: "Stream Offline / Error", isLoading: false }));
+      setCurrentVibe("ERROR: STREAM LOST");
+      
+      // Mark station as offline in the list
+      setStations(prev => prev.map(s => 
+          s.id === currentStation.id ? { ...s, status: 'offline' } : s
+      ));
   };
 
   const changeStation = (station: RadioStation) => {
@@ -167,16 +206,29 @@ const App: React.FC = () => {
     }, 50);
   };
 
+  const getNextWorkingStationIndex = (currentIndex: number, direction: 1 | -1): number => {
+      let nextIdx = currentIndex;
+      let count = 0;
+      // Try to find the next station that is NOT marked offline
+      // Limit loop to length of stations to prevent infinite loop if all are offline
+      do {
+          nextIdx = (nextIdx + direction + stations.length) % stations.length;
+          count++;
+      } while (stations[nextIdx].status === 'offline' && count < stations.length);
+      
+      return nextIdx;
+  };
+
   const handleNext = () => {
       const idx = stations.findIndex(s => s.id === currentStation.id);
-      const next = stations[(idx + 1) % stations.length];
-      changeStation(next);
+      const nextIdx = getNextWorkingStationIndex(idx, 1);
+      changeStation(stations[nextIdx]);
   };
 
   const handlePrev = () => {
       const idx = stations.findIndex(s => s.id === currentStation.id);
-      const prev = stations[(idx - 1 + stations.length) % stations.length];
-      changeStation(prev);
+      const nextIdx = getNextWorkingStationIndex(idx, -1);
+      changeStation(stations[nextIdx]);
   };
 
   const handleAddStation = (name: string, url: string) => {
@@ -191,7 +243,6 @@ const App: React.FC = () => {
       };
       const newStations = [...stations, newStation];
       setStations(newStations);
-      localStorage.setItem('my_custom_stations', JSON.stringify(newStations.filter(s => s.id.startsWith('custom-'))));
   };
 
   // --- RENDER ---
@@ -245,6 +296,8 @@ const App: React.FC = () => {
                              onSetTexture={setTextureMode}
                              eqValues={eqValues}
                              onEqChange={handleEqChange}
+                             onResetStations={handleResetStations}
+                             onClearOffline={handleClearOffline}
                         />
                     )}
 
@@ -275,6 +328,13 @@ const App: React.FC = () => {
                                      <div className="h-[1px] w-12 bg-white/20 mx-auto mb-2"></div>
                                      <p className="text-xs text-blue-300 font-mono tracking-widest uppercase mb-1">{currentStation.genre}</p>
                                      <p className="text-[10px] text-gray-500">{currentStation.country}</p>
+                                     
+                                     {currentStation.status === 'offline' && (
+                                         <div className="mt-3 px-3 py-1 bg-red-900/50 border border-red-500 rounded text-[10px] text-red-200 animate-pulse font-bold tracking-widest">
+                                             ⚠ SIGNAL LOST
+                                         </div>
+                                     )}
+
                                      {favorites.includes(currentStation.id) && (
                                          <span className="text-pink-500 text-[10px] mt-2 block font-bold tracking-wider">♥ FAVORITE</span>
                                      )}
@@ -328,8 +388,8 @@ const App: React.FC = () => {
          crossOrigin="anonymous" 
          preload="none"
          onError={(e) => {
-             console.error("Audio Error Event", e);
-             setPlayerState(p => ({...p, isPlaying:false, error: 'Stream Offline'}));
+             // Handle Error by marking station offline
+             handleStreamError();
          }}
          onPlaying={() => setPlayerState(p => ({...p, isLoading:false, isPlaying:true, error: null}))}
          onWaiting={() => setPlayerState(p => ({...p, isLoading:true}))}

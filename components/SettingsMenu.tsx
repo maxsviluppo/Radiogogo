@@ -10,6 +10,8 @@ interface SettingsMenuProps {
   onSetTexture: (texture: TextureMode) => void;
   eqValues?: { bass: number; mid: number; treble: number };
   onEqChange?: (band: 'bass' | 'mid' | 'treble', value: number) => void;
+  onResetStations?: () => void;
+  onClearOffline?: () => void;
 }
 
 const SettingsMenu: React.FC<SettingsMenuProps> = ({ 
@@ -19,9 +21,11 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
   currentTexture,
   onSetTexture,
   eqValues,
-  onEqChange
+  onEqChange,
+  onResetStations,
+  onClearOffline
 }) => {
-  const [activeTab, setActiveTab] = useState<'eq' | 'skin' | 'upload' | 'add' | 'link'>('eq');
+  const [activeTab, setActiveTab] = useState<'eq' | 'skin' | 'data' | 'upload' | 'add' | 'link'>('eq');
   
   // Add Form State
   const [newName, setNewName] = useState('');
@@ -109,7 +113,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
 
       {/* Tabs - Fixed */}
       <div className="flex border-b border-white/10 bg-[#0a0a0a] overflow-x-auto no-scrollbar shrink-0">
-          {['eq', 'skin', 'upload', 'add', 'link'].map(tab => (
+          {['eq', 'skin', 'data', 'upload', 'add', 'link'].map(tab => (
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
@@ -181,6 +185,39 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
                   ))}
                 </div>
              </div>
+          )}
+
+          {/* DATA TAB (NEW) */}
+          {activeTab === 'data' && (
+              <div className="space-y-4 pt-2 text-center">
+                  <div className="p-4 bg-yellow-900/10 border border-yellow-800/30 rounded-lg">
+                      <h3 className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest mb-2">Gestione Dati</h3>
+                      <p className="text-[9px] text-gray-400 mb-4 leading-relaxed">
+                          Gestisci la tua libreria radio.<br/>
+                          Usa queste opzioni per pulire o ripristinare.
+                      </p>
+                      
+                      <div className="space-y-2">
+                          <button 
+                              onClick={onResetStations}
+                              className="w-full py-2 bg-[#222] hover:bg-yellow-900/40 border border-[#333] hover:border-yellow-700 rounded text-xs font-bold uppercase tracking-wider transition-all"
+                          >
+                              ↻ Aggiorna / Ripristina
+                          </button>
+                          
+                          <button 
+                              onClick={onClearOffline}
+                              className="w-full py-2 bg-[#222] hover:bg-red-900/40 border border-[#333] hover:border-red-700 rounded text-xs font-bold uppercase tracking-wider transition-all"
+                          >
+                              ⚠ Pulisci Radio Offline
+                          </button>
+                      </div>
+                  </div>
+                  
+                  <div className="text-[9px] text-gray-600 mt-4 font-mono">
+                      DATABASE: {stations.length} STATIONS
+                  </div>
+              </div>
           )}
 
           {/* UPLOAD TAB */}
