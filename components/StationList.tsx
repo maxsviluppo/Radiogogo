@@ -96,7 +96,7 @@ const StationList: React.FC<StationListProps> = ({
           </div>
       </div>
 
-      <div className="pb-4 flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar overscroll-contain">
+      <div className="pb-4 flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar overscroll-contain touch-pan-y">
         {displayedStations.length === 0 && filterMode === 'fav' && (
            <div className="flex flex-col items-center justify-center h-40 text-gray-600 gap-2">
               <span className="text-2xl">♥</span>

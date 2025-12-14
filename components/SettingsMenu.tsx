@@ -120,7 +120,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
           ))}
       </div>
 
-      <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 p-4 overflow-y-auto custom-scrollbar touch-pan-y">
           
           {/* EQ TAB (MIXER) */}
           {activeTab === 'eq' && eqValues && onEqChange && (

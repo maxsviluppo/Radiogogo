@@ -196,7 +196,7 @@ const App: React.FC = () => {
 
   // --- RENDER ---
   return (
-    <div className="flex items-center justify-center min-h-[100dvh] bg-[#050505] p-2 sm:p-4 font-sans select-none overflow-hidden touch-none">
+    <div className="flex items-center justify-center min-h-[100dvh] bg-[#050505] p-2 sm:p-4 font-sans select-none overflow-hidden">
       
       {/* --- DEVICE SHELL (DARK 3D CHASSIS) --- */}
       <div className="relative w-full max-w-[360px] sm:max-w-[370px] h-[95dvh] sm:h-[90vh] max-h-[820px] bg-gradient-to-b from-[#1a1a1a] via-[#0d0d0d] to-[#000000] rounded-[2.5rem] sm:rounded-[3rem] shadow-[0_0_0_1px_#333,0_30px_60px_rgba(0,0,0,0.9),inset_0_1px_1px_rgba(255,255,255,0.1)] overflow-hidden flex flex-col z-0 shrink-0">
@@ -240,7 +240,7 @@ const App: React.FC = () => {
                     )}
                     
                     {viewMode === 'settings' && (
-                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar touch-pan-y">
                           <SettingsMenu 
                              stations={stations}
                              onSelectStation={() => {}}
@@ -272,7 +272,6 @@ const App: React.FC = () => {
                              </div>
 
                              {/* Info Layer (Text on top) */}
-                             {/* MODIFIED: Changed justify-center to justify-start and added pt-12 to move content higher */}
                              <div className="relative z-20 flex flex-col items-center justify-start h-full pt-12 sm:pt-16 p-6 text-center">
                                  <div className="bg-black/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)] max-w-[90%]">
                                      <h1 className="text-xl sm:text-2xl font-display font-bold text-white mb-2 drop-shadow-md truncate w-full text-glow">
