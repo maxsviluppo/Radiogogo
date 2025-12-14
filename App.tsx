@@ -107,7 +107,6 @@ const App: React.FC = () => {
     if (!ctx) return;
 
     // 3. Create Source Node ONLY ONCE per audio element
-    // "The operation is not supported" happens if we call createMediaElementSource twice on the same element.
     if (!sourceNodeRef.current && audioRef.current) {
         try {
             const source = ctx.createMediaElementSource(audioRef.current);
@@ -129,7 +128,6 @@ const App: React.FC = () => {
   }, []);
 
   // --- APPLY EQ VALUES ---
-  // This runs whenever eqValues changes, without reconstructing the graph
   useEffect(() => {
       if (bassFilterRef.current) bassFilterRef.current.gain.value = eqValues.bass;
       if (midFilterRef.current) midFilterRef.current.gain.value = eqValues.mid;
@@ -227,9 +225,9 @@ const App: React.FC = () => {
   const handlePrev = () => changeStation(stations[getNextStationIndex(stations.findIndex(s => s.id === currentStation.id), -1)]);
 
   // --- ADD STATION (CUSTOM OR FILE) ---
-  const handleAddStation = (name: string, url: string, genre = 'Custom', country = 'User') => {
+  const handleAddStation = (name: string, url: string, genre = 'Custom', country = 'User', autoPlay = true) => {
       const newStation: RadioStation = {
-          id: `custom-${Date.now()}`,
+          id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           name,
           url,
           genre,
@@ -238,20 +236,25 @@ const App: React.FC = () => {
           logo: ''
       };
       
-      const updatedStations = [...stations, newStation];
-      setStations(updatedStations);
+      setStations(prev => [...prev, newStation]);
       
-      // Auto-play the new station and go to player view
-      setCurrentStation(newStation);
-      setPlayerState(p => ({ ...p, isLoading: true, isPlaying: false, error: null }));
-      setViewMode('player');
-      
-      setTimeout(() => {
-          if(audioRef.current) {
-              audioRef.current.load();
-              togglePlay();
-          }
-      }, 100);
+      if (autoPlay) {
+          setCurrentStation(newStation);
+          setPlayerState(p => ({ ...p, isLoading: true, isPlaying: false, error: null }));
+          setViewMode('player');
+          
+          setTimeout(() => {
+              if(audioRef.current) {
+                  audioRef.current.load();
+                  togglePlay();
+              }
+          }, 100);
+      }
+  };
+
+  const handleDeleteStation = (id: string) => {
+      setStations(prev => prev.filter(s => s.id !== id));
+      // If deleting current station, maybe switch to default? keeping it simple for now
   };
 
   // --- RENDER ---
@@ -291,8 +294,9 @@ const App: React.FC = () => {
                     {viewMode === 'settings' && (
                         <SettingsMenu 
                              stations={stations}
-                             onSelectStation={() => {}}
+                             onSelectStation={(s) => { changeStation(s); setViewMode('player'); }}
                              onAddStation={handleAddStation}
+                             onDeleteStation={handleDeleteStation}
                              currentTexture={textureMode}
                              onSetTexture={setTextureMode}
                              eqValues={eqValues}
