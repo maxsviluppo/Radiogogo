@@ -15,14 +15,20 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('my_custom_stations');
     if (saved) {
       try { 
-          return JSON.parse(saved); 
+          const parsed = JSON.parse(saved);
+          // Filter out blob URLs (local files) as they are invalid after refresh
+          const validStations = parsed.filter((s: RadioStation) => !s.url.startsWith('blob:'));
+          // If all stations were blobs and we have none left, return default
+          return validStations.length > 0 ? validStations : RADIO_STATIONS;
       } catch (e) { return RADIO_STATIONS; }
     }
     return RADIO_STATIONS;
   });
 
   useEffect(() => {
-      localStorage.setItem('my_custom_stations', JSON.stringify(stations));
+      // Don't save blob URLs to localStorage
+      const stationsToSave = stations.filter(s => !s.url.startsWith('blob:'));
+      localStorage.setItem('my_custom_stations', JSON.stringify(stationsToSave));
   }, [stations]);
 
   const [favorites, setFavorites] = useState<string[]>(() => {
@@ -149,8 +155,17 @@ const App: React.FC = () => {
         getStationVibe(currentStation).then(setCurrentVibe);
       } catch (e: any) {
         if (e.name !== 'AbortError') {
-             console.error("Playback error:", e);
-             handleStreamError();
+             console.error("Playback error detail:", e);
+             
+             let errorMessage = "Playback Failed";
+             if (e.name === 'NotSupportedError') {
+                 errorMessage = "Format Not Supported";
+             } else if (e.name === 'NotAllowedError') {
+                 errorMessage = "Tap to Play";
+             }
+
+             setPlayerState(p => ({ ...p, isPlaying: false, error: errorMessage, isLoading: false }));
+             setCurrentVibe(`ERROR: ${errorMessage.toUpperCase()}`);
         }
       }
     }
@@ -161,8 +176,11 @@ const App: React.FC = () => {
   };
 
   const handleStreamError = () => {
+      // Don't override explicit playback errors if we just handled one
+      if (playerState.error) return; 
+      
       console.warn(`Station ${currentStation.name} is offline/error.`);
-      setPlayerState(p => ({ ...p, isPlaying: false, error: "Stream Offline / Error", isLoading: false }));
+      setPlayerState(p => ({ ...p, isPlaying: false, error: "Stream Offline", isLoading: false }));
       setCurrentVibe("ERROR: SIGNAL LOST");
       
       // Mark station as offline locally
@@ -176,6 +194,7 @@ const App: React.FC = () => {
     setPlayerState(p => ({ ...p, isLoading: true, isPlaying: false, error: null }));
     setCurrentVibe("TUNING...");
     
+    // Short timeout to allow UI update before heavy DOM operation (loading audio)
     setTimeout(() => {
         if(audioRef.current) {
             audioRef.current.load();
@@ -254,8 +273,60 @@ const App: React.FC = () => {
 
   const handleDeleteStation = (id: string) => {
       setStations(prev => prev.filter(s => s.id !== id));
-      // If deleting current station, maybe switch to default? keeping it simple for now
+      // If we deleted the current station, switch to the first available
+      if (currentStation.id === id) {
+          const remaining = stations.filter(s => s.id !== id);
+          if (remaining.length > 0) {
+              changeStation(remaining[0]);
+          } else {
+              setStations(RADIO_STATIONS);
+              changeStation(RADIO_STATIONS[0]);
+          }
+      }
   };
+
+  // --- MEDIA SESSION (Background Playback) ---
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      try {
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: currentStation.name,
+            artist: currentStation.country === 'My Device' ? 'Local File' : currentStation.genre,
+            album: "NeonStream Radio",
+            artwork: [
+                { src: currentStation.logo?.startsWith('http') ? currentStation.logo : 'https://cdn-icons-png.flaticon.com/512/4430/4430494.png', sizes: '512x512', type: 'image/png' }
+            ]
+          });
+
+          const actionHandlers = [
+              ['play', () => {
+                 if (audioRef.current) {
+                     audioRef.current.play().catch(console.error);
+                     setPlayerState(p => ({ ...p, isPlaying: true }));
+                 }
+              }],
+              ['pause', () => {
+                 if (audioRef.current) {
+                     audioRef.current.pause();
+                     setPlayerState(p => ({ ...p, isPlaying: false }));
+                 }
+              }],
+              ['previoustrack', handlePrev],
+              ['nexttrack', handleNext]
+          ] as const;
+
+          actionHandlers.forEach(([action, handler]) => {
+              try {
+                  navigator.mediaSession.setActionHandler(action, handler);
+              } catch (e) {
+                  // Silently ignore if action is not supported
+              }
+          });
+      } catch (e) {
+          console.warn("Media Session setup failed:", e);
+      }
+    }
+  }, [currentStation, stations]);
 
   // --- RENDER ---
   return (
@@ -284,7 +355,7 @@ const App: React.FC = () => {
                             favorites={favorites}
                             onSelectStation={(s) => { changeStation(s); setViewMode('player'); }}
                             onAddStation={(n, u) => handleAddStation(n, u)}
-                            onDeleteStation={() => {}}
+                            onDeleteStation={handleDeleteStation}
                             onReorderFavorites={handleReorderFavorites}
                             onToggleFavorite={toggleFavorite}
                             isPlaying={playerState.isPlaying}
@@ -321,6 +392,7 @@ const App: React.FC = () => {
                                      <p className="text-xs text-blue-300 font-mono tracking-widest uppercase mb-1">{currentStation.genre}</p>
                                      <p className="text-[10px] text-gray-500">{currentStation.country}</p>
                                      {currentStation.status === 'offline' && <div className="mt-3 px-3 py-1 bg-red-900/50 border border-red-500 rounded text-[10px] text-red-200 animate-pulse font-bold tracking-widest">⚠ SIGNAL LOST</div>}
+                                     {playerState.error && <div className="mt-3 px-3 py-1 bg-red-900/50 border border-red-500 rounded text-[10px] text-red-200 animate-pulse font-bold tracking-widest">{playerState.error}</div>}
                                      {favorites.includes(currentStation.id) && <span className="text-pink-500 text-[10px] mt-2 block font-bold tracking-wider">♥ FAVORITE</span>}
                                  </div>
                              </div>
