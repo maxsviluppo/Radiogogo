@@ -196,7 +196,7 @@ const App: React.FC = () => {
 
   // --- RENDER ---
   return (
-    <div className="flex items-center justify-center min-h-[100dvh] bg-[#050505] p-2 sm:p-4 font-sans select-none overflow-hidden">
+    <div className="flex items-center justify-center min-h-[100dvh] bg-[#050505] p-2 sm:p-4 font-sans select-none overflow-hidden touch-pan-y">
       
       {/* --- DEVICE SHELL (DARK 3D CHASSIS) --- */}
       <div className="relative w-full max-w-[360px] sm:max-w-[370px] h-[95dvh] sm:h-[90vh] max-h-[820px] bg-gradient-to-b from-[#1a1a1a] via-[#0d0d0d] to-[#000000] rounded-[2.5rem] sm:rounded-[3rem] shadow-[0_0_0_1px_#333,0_30px_60px_rgba(0,0,0,0.9),inset_0_1px_1px_rgba(255,255,255,0.1)] overflow-hidden flex flex-col z-0 shrink-0">
@@ -211,7 +211,7 @@ const App: React.FC = () => {
             <div className="absolute top-0 right-0 w-2/3 h-1/3 bg-gradient-to-bl from-white/10 to-transparent pointer-events-none z-50 rounded-tr-xl"></div>
 
             {/* Viewport Content */}
-            <div className="flex-1 flex flex-col relative z-20">
+            <div className="flex-1 flex flex-col relative z-20 overflow-hidden">
                 {/* Status Bar */}
                 <div className="h-6 bg-black/90 flex justify-between items-center px-3 pt-1 border-b border-white/5 relative z-30 shrink-0">
                     <div className="flex gap-2 items-center">
@@ -224,7 +224,7 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Main Content Area */}
-                <div className="flex-1 relative overflow-hidden bg-black flex flex-col">
+                <div className="flex-1 relative overflow-hidden bg-black flex flex-col h-full">
                     {viewMode === 'menu' && (
                         <StationList 
                             stations={stations}
@@ -240,8 +240,7 @@ const App: React.FC = () => {
                     )}
                     
                     {viewMode === 'settings' && (
-                        <div className="flex-1 overflow-y-auto custom-scrollbar touch-pan-y">
-                          <SettingsMenu 
+                        <SettingsMenu 
                              stations={stations}
                              onSelectStation={() => {}}
                              onAddStation={handleAddStation}
@@ -249,8 +248,7 @@ const App: React.FC = () => {
                              onSetTexture={setTextureMode}
                              eqValues={eqValues}
                              onEqChange={handleEqChange}
-                          />
-                        </div>
+                        />
                     )}
 
                     {viewMode === 'player' && (

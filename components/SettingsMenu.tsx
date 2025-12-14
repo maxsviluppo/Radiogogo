@@ -100,15 +100,15 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
   );
 
   return (
-    <div className="w-full min-h-full bg-[#111] text-white font-sans flex flex-col">
+    <div className="w-full h-full bg-[#111] text-white font-sans flex flex-col overflow-hidden">
       
-      {/* Settings Header */}
-      <div className="bg-gradient-to-b from-[#222] to-[#111] border-b border-white/10 p-2">
+      {/* Settings Header - Fixed */}
+      <div className="bg-gradient-to-b from-[#222] to-[#111] border-b border-white/10 p-2 shrink-0">
           <h2 className="text-center font-bold text-xs text-gray-300 uppercase tracking-widest">System Config</h2>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-white/10 bg-[#0a0a0a] overflow-x-auto no-scrollbar">
+      {/* Tabs - Fixed */}
+      <div className="flex border-b border-white/10 bg-[#0a0a0a] overflow-x-auto no-scrollbar shrink-0">
           {['eq', 'skin', 'upload', 'add', 'link'].map(tab => (
               <button 
                 key={tab}
@@ -120,6 +120,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
           ))}
       </div>
 
+      {/* Scrollable Content */}
       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar touch-pan-y">
           
           {/* EQ TAB (MIXER) */}

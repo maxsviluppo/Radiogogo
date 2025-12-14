@@ -30,7 +30,9 @@ const StationList: React.FC<StationListProps> = ({
   // Touch Swipe State
   const [swipedStationId, setSwipedStationId] = useState<string | null>(null);
   const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
   const touchCurrentX = useRef<number | null>(null);
+  const isScrolling = useRef<boolean>(false);
 
   const displayedStations = useMemo(() => {
     if (filterMode === 'fav') {
@@ -55,15 +57,30 @@ const StationList: React.FC<StationListProps> = ({
   // --- SWIPE LOGIC ---
   const handleTouchStart = (e: React.TouchEvent, id: string) => {
       touchStartX.current = e.targetTouches[0].clientX;
+      touchStartY.current = e.targetTouches[0].clientY;
       setSwipedStationId(id);
+      isScrolling.current = false;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
       touchCurrentX.current = e.targetTouches[0].clientX;
+      const currentY = e.targetTouches[0].clientY;
+      
+      if (touchStartX.current === null || touchStartY.current === null) return;
+
+      const diffX = Math.abs(touchCurrentX.current - touchStartX.current);
+      const diffY = Math.abs(currentY - touchStartY.current);
+
+      // Detect if user is scrolling vertically
+      if (diffY > diffX && diffY > 10) {
+        isScrolling.current = true;
+        // Reset X to avoid firing swipe on end
+        touchStartX.current = null; 
+      }
   };
 
   const handleTouchEnd = (id: string) => {
-      if (touchStartX.current !== null && touchCurrentX.current !== null) {
+      if (!isScrolling.current && touchStartX.current !== null && touchCurrentX.current !== null) {
           const diff = touchCurrentX.current - touchStartX.current;
           // Swipe Right Threshold (SX -> DX)
           if (diff > 80 && onToggleFavorite) {
@@ -73,12 +90,14 @@ const StationList: React.FC<StationListProps> = ({
           }
       }
       touchStartX.current = null;
+      touchStartY.current = null;
       touchCurrentX.current = null;
+      isScrolling.current = false;
       setSwipedStationId(null);
   };
 
   return (
-    <div className="w-full h-full bg-[#050505] text-gray-200 font-sans flex flex-col select-none relative">
+    <div className="w-full h-full bg-[#050505] text-gray-200 font-sans flex flex-col select-none relative overflow-hidden">
       {/* Header - No sticky here, we scroll the content below */}
       <div className="bg-gradient-to-b from-[#222] to-[#111] px-3 py-2 border-b border-[#333] shadow-lg flex justify-between items-center shrink-0 z-20">
           <h2 className="font-display font-bold text-[10px] text-gray-300 tracking-widest uppercase">
@@ -115,7 +134,7 @@ const StationList: React.FC<StationListProps> = ({
               onTouchStart={(e) => handleTouchStart(e, station.id)}
               onTouchMove={handleTouchMove}
               onTouchEnd={() => handleTouchEnd(station.id)}
-              className="relative overflow-hidden border-b border-[#1a1a1a]"
+              className="relative overflow-hidden border-b border-[#1a1a1a] touch-pan-y"
             >
                 {/* Swipe Action Background Indicator */}
                 <div className="absolute inset-0 bg-pink-900/40 flex items-center justify-start pl-4 transition-opacity duration-300">
