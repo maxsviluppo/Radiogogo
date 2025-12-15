@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import { RadioStation, TextureMode } from '../types';
+import { RadioStation } from '../types';
 
 interface SettingsMenuProps {
   stations: RadioStation[];
   onSelectStation: (station: RadioStation) => void;
   onAddStation: (name: string, url: string, genre: string, country: string, autoPlay?: boolean) => void;
   onDeleteStation?: (id: string) => void;
-  currentTexture: TextureMode;
-  onSetTexture: (texture: TextureMode) => void;
   onResetStations?: () => void;
   onClearOffline?: () => void;
 }
@@ -17,12 +15,11 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
   onSelectStation,
   onAddStation,
   onDeleteStation,
-  currentTexture,
-  onSetTexture,
   onResetStations,
   onClearOffline
 }) => {
-  const [activeTab, setActiveTab] = useState<'skin' | 'data' | 'local' | 'add' | 'link'>('skin');
+  // Default to 'local' since Skin is removed
+  const [activeTab, setActiveTab] = useState<'local' | 'data' | 'add' | 'link'>('local');
   
   const [newName, setNewName] = useState('');
   const [newUrl, setNewUrl] = useState('');
@@ -51,12 +48,6 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
   // Filter for Local Files
   const localStations = stations.filter(s => s.country === 'My Device' || s.genre === 'Local File');
 
-  const textures: {id: TextureMode, name: string, color: string}[] = [
-    { id: 'iPod', name: 'iPod Classic', color: '#4a4a4a' },
-    { id: 'Cyberpunk', name: 'Cyberpunk Neon', color: '#000000' },
-    { id: 'Retro', name: 'Retro Gold', color: '#3e2723' },
-  ];
-
   return (
     <div className="w-full h-full bg-[#111] text-white font-sans flex flex-col overflow-hidden">
       <div className="bg-gradient-to-b from-[#222] to-[#111] border-b border-white/10 p-2 shrink-0">
@@ -64,7 +55,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
       </div>
 
       <div className="flex border-b border-white/10 bg-[#0a0a0a] overflow-x-auto no-scrollbar shrink-0">
-          {['skin', 'data', 'local', 'add', 'link'].map(tab => (
+          {['local', 'data', 'add', 'link'].map(tab => (
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
@@ -76,55 +67,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
       </div>
 
       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar touch-pan-y">
-          {activeTab === 'skin' && (
-             <div className="space-y-4 pt-2">
-                <p className="text-[10px] text-gray-400 text-center mb-4">Seleziona Texture Dispositivo</p>
-                <div className="grid grid-cols-1 gap-3">
-                  {textures.map((tex) => (
-                    <button
-                      key={tex.id}
-                      onClick={() => onSetTexture(tex.id)}
-                      className={`
-                        flex items-center justify-between p-3 rounded-lg border transition-all
-                        ${currentTexture === tex.id 
-                          ? 'border-blue-500 bg-white/10 shadow-[0_0_10px_rgba(59,130,246,0.5)]' 
-                          : 'border-[#333] bg-[#222] hover:bg-[#333]'
-                        }
-                      `}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-full border border-white/20" style={{backgroundColor: tex.color}}></div>
-                        <span className="text-xs font-bold">{tex.name}</span>
-                      </div>
-                      {currentTexture === tex.id && <span className="text-blue-400 text-[10px]">● ACTIVE</span>}
-                    </button>
-                  ))}
-                </div>
-             </div>
-          )}
-
-          {activeTab === 'data' && (
-              <div className="space-y-4 pt-2 text-center">
-                  <div className="p-4 bg-yellow-900/10 border border-yellow-800/30 rounded-lg">
-                      <h3 className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest mb-2">Gestione Dati</h3>
-                      <p className="text-[9px] text-gray-400 mb-4 leading-relaxed">
-                          Gestisci la tua libreria radio.<br/>
-                          Usa queste opzioni per pulire o ripristinare.
-                      </p>
-                      
-                      <div className="space-y-2">
-                          <button onClick={onResetStations} className="w-full py-2 bg-[#222] hover:bg-yellow-900/40 border border-[#333] hover:border-yellow-700 rounded text-xs font-bold uppercase tracking-wider transition-all">
-                              ↻ Aggiorna / Ripristina
-                          </button>
-                          <button onClick={onClearOffline} className="w-full py-2 bg-[#222] hover:bg-red-900/40 border border-[#333] hover:border-red-700 rounded text-xs font-bold uppercase tracking-wider transition-all">
-                              ⚠ Pulisci Radio Offline
-                          </button>
-                      </div>
-                  </div>
-                  <div className="text-[9px] text-gray-600 mt-4 font-mono">DATABASE: {stations.length} STATIONS</div>
-              </div>
-          )}
-
+          
           {activeTab === 'local' && (
              <div className="flex flex-col h-full pt-2">
                 <div className="text-center mb-4 shrink-0">
@@ -182,6 +125,28 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
                     )}
                 </div>
              </div>
+          )}
+
+          {activeTab === 'data' && (
+              <div className="space-y-4 pt-2 text-center">
+                  <div className="p-4 bg-yellow-900/10 border border-yellow-800/30 rounded-lg">
+                      <h3 className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest mb-2">Gestione Dati</h3>
+                      <p className="text-[9px] text-gray-400 mb-4 leading-relaxed">
+                          Gestisci la tua libreria radio.<br/>
+                          Usa queste opzioni per pulire o ripristinare.
+                      </p>
+                      
+                      <div className="space-y-2">
+                          <button onClick={onResetStations} className="w-full py-2 bg-[#222] hover:bg-yellow-900/40 border border-[#333] hover:border-yellow-700 rounded text-xs font-bold uppercase tracking-wider transition-all">
+                              ↻ Aggiorna / Ripristina
+                          </button>
+                          <button onClick={onClearOffline} className="w-full py-2 bg-[#222] hover:bg-red-900/40 border border-[#333] hover:border-red-700 rounded text-xs font-bold uppercase tracking-wider transition-all">
+                              ⚠ Pulisci Radio Offline
+                          </button>
+                      </div>
+                  </div>
+                  <div className="text-[9px] text-gray-600 mt-4 font-mono">DATABASE: {stations.length} STATIONS</div>
+              </div>
           )}
 
           {activeTab === 'add' && (

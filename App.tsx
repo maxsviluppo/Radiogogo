@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { RADIO_STATIONS } from './constants';
 import { RadioStation, PlayerState, TextureMode } from './types';
@@ -70,11 +69,12 @@ const App: React.FC = () => {
         audioContextRef.current.resume().catch(console.warn);
     }
 
-    // 2. Create Context ONLY ONCE
+    // 2. Create Context ONLY ONCE with playback hint to prevent background suspension
     if (!audioContextRef.current) {
         try {
             const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-            const ctx = new AudioContextClass();
+            // latencyHint: 'playback' is CRITICAL for background audio on mobile/safari
+            const ctx = new AudioContextClass({ latencyHint: 'playback' }); 
             audioContextRef.current = ctx;
 
             // Create Nodes
@@ -131,6 +131,17 @@ const App: React.FC = () => {
         }
     }
 
+  }, []);
+
+  // --- AUTO RESUME CONTEXT ON VISIBILITY CHANGE ---
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && audioContextRef.current?.state === 'suspended') {
+        audioContextRef.current.resume();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   // --- APPLY EQ VALUES ---
@@ -328,6 +339,9 @@ const App: React.FC = () => {
     }
   }, [currentStation, stations]);
 
+  // Determine if URL is local (blob) to avoid Cross-Origin issues which kill background audio
+  const isLocalSource = currentStation.url.startsWith('blob:');
+
   // --- RENDER ---
   return (
     <div className="flex items-center justify-center min-h-[100dvh] bg-[#050505] p-2 sm:p-4 font-sans select-none overflow-hidden touch-pan-y">
@@ -368,8 +382,6 @@ const App: React.FC = () => {
                              onSelectStation={(s) => { changeStation(s); setViewMode('player'); }}
                              onAddStation={handleAddStation}
                              onDeleteStation={handleDeleteStation}
-                             currentTexture={textureMode}
-                             onSetTexture={setTextureMode}
                              onResetStations={handleResetStations}
                              onClearOffline={handleClearOffline}
                         />
@@ -435,7 +447,9 @@ const App: React.FC = () => {
       <audio 
          ref={audioRef} 
          src={currentStation.url} 
-         crossOrigin="anonymous" 
+         // CRITICAL FIX: Only use anonymous CORS for remote streams. 
+         // Local files (blobs) MUST NOT have crossorigin set, or they fail in some browsers/background.
+         crossOrigin={isLocalSource ? undefined : "anonymous"}
          preload="auto"
          onError={handleStreamError}
          onPlaying={() => setPlayerState(p => ({...p, isLoading:false, isPlaying:true, error: null}))}
