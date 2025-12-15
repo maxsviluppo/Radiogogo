@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { RADIO_STATIONS } from './constants';
-import { RadioStation, PlayerState, TextureMode } from './types';
+import { RadioStation, PlayerState } from './types';
 import StationList from './components/StationList';
 import Controls from './components/Controls';
 import SettingsMenu from './components/SettingsMenu';
@@ -41,7 +41,6 @@ const App: React.FC = () => {
   });
   
   const [viewMode, setViewMode] = useState<'player' | 'menu' | 'settings'>('player'); 
-  const [textureMode, setTextureMode] = useState<TextureMode>('Cyberpunk'); 
   const [currentVibe, setCurrentVibe] = useState<string>("SYSTEM: READY");
   const [showEq, setShowEq] = useState(false);
   
@@ -69,13 +68,28 @@ const App: React.FC = () => {
         audioContextRef.current.resume().catch(console.warn);
     }
 
-    // 2. Create Context ONLY ONCE with playback hint to prevent background suspension
+    // 2. Create Context ONLY ONCE with playback hint
     if (!audioContextRef.current) {
         try {
             const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-            // latencyHint: 'playback' is CRITICAL for background audio on mobile/safari
+            // 'latencyHint: playback' tells the browser this is a music player, prioritizing continuity over latency
             const ctx = new AudioContextClass({ latencyHint: 'playback' }); 
             audioContextRef.current = ctx;
+
+            // --- SILENT OSCILLATOR HACK ("Fake Stream") ---
+            // This injects a practically silent signal into the output.
+            // It tricks the OS into thinking the app is generating real-time audio (like a synthesizer),
+            // which forces the audio thread to stay awake even when the screen is off or the tab is hidden.
+            // This is essential for keeping local file playback alive in background.
+            const keepAliveOsc = ctx.createOscillator();
+            const keepAliveGain = ctx.createGain();
+            keepAliveOsc.type = 'sine';
+            keepAliveOsc.frequency.value = 60; // Low frequency
+            keepAliveGain.gain.value = 0.0001; // Effectively silent (just above zero to prevent optimization)
+            keepAliveOsc.connect(keepAliveGain);
+            keepAliveGain.connect(ctx.destination);
+            keepAliveOsc.start();
+            // ---------------------------------------------
 
             // Create Nodes
             const analyser = ctx.createAnalyser();
@@ -451,9 +465,11 @@ const App: React.FC = () => {
          // Local files (blobs) MUST NOT have crossorigin set, or they fail in some browsers/background.
          crossOrigin={isLocalSource ? undefined : "anonymous"}
          preload="auto"
+         playsInline
          onError={handleStreamError}
          onPlaying={() => setPlayerState(p => ({...p, isLoading:false, isPlaying:true, error: null}))}
          onWaiting={() => setPlayerState(p => ({...p, isLoading:true}))}
+         onEnded={handleNext} 
       />
     </div>
   );
