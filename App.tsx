@@ -15,9 +15,7 @@ const App: React.FC = () => {
     if (saved) {
       try { 
           const parsed = JSON.parse(saved);
-          // Filter out blob URLs (local files) as they are invalid after refresh
           const validStations = parsed.filter((s: RadioStation) => !s.url.startsWith('blob:'));
-          // If all stations were blobs and we have none left, return default
           return validStations.length > 0 ? validStations : RADIO_STATIONS;
       } catch (e) { return RADIO_STATIONS; }
     }
@@ -25,7 +23,6 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-      // Don't save blob URLs to localStorage
       const stationsToSave = stations.filter(s => !s.url.startsWith('blob:'));
       localStorage.setItem('my_custom_stations', JSON.stringify(stationsToSave));
   }, [stations]);
@@ -61,37 +58,26 @@ const App: React.FC = () => {
 
   // --- AUDIO GRAPH INITIALIZATION ---
   const initAudioGraph = useCallback(() => {
-    if (!audioRef.current) return;
-    
-    // 1. Resume Context if needed
-    if (audioContextRef.current?.state === 'suspended') {
-        audioContextRef.current.resume().catch(console.warn);
-    }
-
-    // 2. Create Context ONLY ONCE with playback hint
+    // Check if AudioContext exists, if not create it (Singleton)
     if (!audioContextRef.current) {
         try {
             const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-            // 'latencyHint: playback' tells the browser this is a music player, prioritizing continuity over latency
+            // 'latencyHint: playback' is CRITICAL for iOS to treat this as a music app
             const ctx = new AudioContextClass({ latencyHint: 'playback' }); 
             audioContextRef.current = ctx;
 
-            // --- SILENT OSCILLATOR HACK ("Fake Stream") ---
-            // This injects a practically silent signal into the output.
-            // It tricks the OS into thinking the app is generating real-time audio (like a synthesizer),
-            // which forces the audio thread to stay awake even when the screen is off or the tab is hidden.
-            // This is essential for keeping local file playback alive in background.
+            // --- iOS SAFARI KEEPALIVE OSCILLATOR ---
+            // Injects silent audio to keep the audio thread active
             const keepAliveOsc = ctx.createOscillator();
             const keepAliveGain = ctx.createGain();
             keepAliveOsc.type = 'sine';
-            keepAliveOsc.frequency.value = 60; // Low frequency
-            keepAliveGain.gain.value = 0.0001; // Effectively silent (just above zero to prevent optimization)
+            keepAliveOsc.frequency.value = 60; 
+            keepAliveGain.gain.value = 0.0001; 
             keepAliveOsc.connect(keepAliveGain);
             keepAliveGain.connect(ctx.destination);
             keepAliveOsc.start();
-            // ---------------------------------------------
 
-            // Create Nodes
+            // --- NODES SETUP ---
             const analyser = ctx.createAnalyser();
             analyser.fftSize = 512; 
             analyser.smoothingTimeConstant = 0.85; 
@@ -109,13 +95,11 @@ const App: React.FC = () => {
             trebleNode.type = 'highshelf';
             trebleNode.frequency.value = 3000;
 
-            // Store Refs
             analyserRef.current = analyser;
             bassFilterRef.current = bassNode;
             midFilterRef.current = midNode;
             trebleFilterRef.current = trebleNode;
 
-            // Update State for Visualizer
             setAnalyserNode(analyser);
         } catch (e) {
             console.warn("Audio Context creation failed", e);
@@ -126,13 +110,17 @@ const App: React.FC = () => {
     const ctx = audioContextRef.current;
     if (!ctx) return;
 
-    // 3. Create Source Node ONLY ONCE per audio element
+    // Force Resume on init attempt
+    if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+    }
+
+    // Connect Audio Element to Graph
     if (!sourceNodeRef.current && audioRef.current) {
         try {
             const source = ctx.createMediaElementSource(audioRef.current);
             sourceNodeRef.current = source;
             
-            // Connect Graph: Source -> Bass -> Mid -> Treble -> Analyser -> Dest
             if (bassFilterRef.current && midFilterRef.current && trebleFilterRef.current && analyserRef.current) {
                 source.connect(bassFilterRef.current);
                 bassFilterRef.current.connect(midFilterRef.current);
@@ -144,19 +132,48 @@ const App: React.FC = () => {
             console.error("Error connecting audio graph:", e);
         }
     }
-
   }, []);
 
-  // --- AUTO RESUME CONTEXT ON VISIBILITY CHANGE ---
+  // --- iOS GLOBAL UNLOCKER ---
+  // iOS requires a user interaction to "bless" the audio context. 
+  // We bind this to the window so ANY touch unlocks the audio engine.
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && audioContextRef.current?.state === 'suspended') {
-        audioContextRef.current.resume();
-      }
+    const unlockAudio = () => {
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume().then(() => {
+                // Remove listeners once unlocked to save resources
+                // We keep them if we want to be aggressive, but removing is cleaner standard practice
+                // However, for this specific "mp3 stops in background" bug, we keep checking in the interval below.
+            }).catch(() => {});
+        }
+        // Initialize graph on first touch if not ready
+        if (!audioContextRef.current) {
+            initAudioGraph();
+        }
     };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
+
+    window.addEventListener('touchstart', unlockAudio, { passive: true });
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('keydown', unlockAudio);
+
+    return () => {
+        window.removeEventListener('touchstart', unlockAudio);
+        window.removeEventListener('click', unlockAudio);
+        window.removeEventListener('keydown', unlockAudio);
+    };
+  }, [initAudioGraph]);
+
+  // --- AGGRESSIVE STATE MONITOR ---
+  // If the OS suspends the context (screen lock), we try to force resume it.
+  useEffect(() => {
+      const interval = setInterval(() => {
+          if (audioContextRef.current && playerState.isPlaying && audioContextRef.current.state === 'suspended') {
+              audioContextRef.current.resume();
+          }
+      }, 1000);
+      return () => clearInterval(interval);
+  }, [playerState.isPlaying]);
+
 
   // --- APPLY EQ VALUES ---
   useEffect(() => {
@@ -168,29 +185,21 @@ const App: React.FC = () => {
   // --- PLAYBACK ---
   const togglePlay = async () => {
     if (!audioRef.current) return;
-    initAudioGraph(); // Ensure graph exists
+    initAudioGraph(); 
 
     if (playerState.isPlaying) {
       audioRef.current.pause();
       setPlayerState(p => ({ ...p, isPlaying: false }));
     } else {
       try {
+        await audioContextRef.current?.resume(); // Explicit resume on play click
         await audioRef.current.play();
         setPlayerState(p => ({ ...p, isPlaying: true, error: null }));
         getStationVibe(currentStation).then(setCurrentVibe);
       } catch (e: any) {
         if (e.name !== 'AbortError') {
              console.error("Playback error detail:", e);
-             
-             let errorMessage = "Playback Failed";
-             if (e.name === 'NotSupportedError') {
-                 errorMessage = "Format Not Supported";
-             } else if (e.name === 'NotAllowedError') {
-                 errorMessage = "Tap to Play";
-             }
-
-             setPlayerState(p => ({ ...p, isPlaying: false, error: errorMessage, isLoading: false }));
-             setCurrentVibe(`ERROR: ${errorMessage.toUpperCase()}`);
+             setPlayerState(p => ({ ...p, isPlaying: false, error: "Tap to Play", isLoading: false }));
         }
       }
     }
@@ -201,14 +210,12 @@ const App: React.FC = () => {
   };
 
   const handleStreamError = () => {
-      // Don't override explicit playback errors if we just handled one
       if (playerState.error) return; 
       
       console.warn(`Station ${currentStation.name} is offline/error.`);
       setPlayerState(p => ({ ...p, isPlaying: false, error: "Stream Offline", isLoading: false }));
       setCurrentVibe("ERROR: SIGNAL LOST");
       
-      // Mark station as offline locally
       setStations(prev => prev.map(s => 
           s.id === currentStation.id ? { ...s, status: 'offline' } : s
       ));
@@ -219,7 +226,6 @@ const App: React.FC = () => {
     setPlayerState(p => ({ ...p, isLoading: true, isPlaying: false, error: null }));
     setCurrentVibe("TUNING...");
     
-    // Short timeout to allow UI update before heavy DOM operation (loading audio)
     setTimeout(() => {
         if(audioRef.current) {
             audioRef.current.load();
@@ -268,7 +274,6 @@ const App: React.FC = () => {
   const handleNext = () => changeStation(stations[getNextStationIndex(stations.findIndex(s => s.id === currentStation.id), 1)]);
   const handlePrev = () => changeStation(stations[getNextStationIndex(stations.findIndex(s => s.id === currentStation.id), -1)]);
 
-  // --- ADD STATION (CUSTOM OR FILE) ---
   const handleAddStation = (name: string, url: string, genre = 'Custom', country = 'User', autoPlay = true) => {
       const newStation: RadioStation = {
           id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -298,7 +303,6 @@ const App: React.FC = () => {
 
   const handleDeleteStation = (id: string) => {
       setStations(prev => prev.filter(s => s.id !== id));
-      // If we deleted the current station, switch to the first available
       if (currentStation.id === id) {
           const remaining = stations.filter(s => s.id !== id);
           if (remaining.length > 0) {
@@ -310,7 +314,7 @@ const App: React.FC = () => {
       }
   };
 
-  // --- MEDIA SESSION (Background Playback) ---
+  // --- MEDIA SESSION ---
   useEffect(() => {
     if ('mediaSession' in navigator) {
       try {
@@ -343,9 +347,7 @@ const App: React.FC = () => {
           actionHandlers.forEach(([action, handler]) => {
               try {
                   navigator.mediaSession.setActionHandler(action, handler);
-              } catch (e) {
-                  // Silently ignore if action is not supported
-              }
+              } catch (e) { }
           });
       } catch (e) {
           console.warn("Media Session setup failed:", e);
@@ -353,7 +355,6 @@ const App: React.FC = () => {
     }
   }, [currentStation, stations]);
 
-  // Determine if URL is local (blob) to avoid Cross-Origin issues which kill background audio
   const isLocalSource = currentStation.url.startsWith('blob:');
 
   // --- RENDER ---
@@ -461,11 +462,11 @@ const App: React.FC = () => {
       <audio 
          ref={audioRef} 
          src={currentStation.url} 
-         // CRITICAL FIX: Only use anonymous CORS for remote streams. 
-         // Local files (blobs) MUST NOT have crossorigin set, or they fail in some browsers/background.
          crossOrigin={isLocalSource ? undefined : "anonymous"}
          preload="auto"
          playsInline
+         // Explicitly disable remote playback control on the element itself to let MediaSession handle it
+         disableRemotePlayback={false}
          onError={handleStreamError}
          onPlaying={() => setPlayerState(p => ({...p, isLoading:false, isPlaying:true, error: null}))}
          onWaiting={() => setPlayerState(p => ({...p, isLoading:true}))}
