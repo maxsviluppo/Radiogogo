@@ -18,8 +18,8 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
   onResetStations,
   onClearOffline
 }) => {
-  // Default to 'local' since Skin is removed
-  const [activeTab, setActiveTab] = useState<'local' | 'data' | 'add' | 'link'>('local');
+  // Added 'dev' to the tabs
+  const [activeTab, setActiveTab] = useState<'local' | 'data' | 'add' | 'link' | 'dev'>('local');
   
   const [newName, setNewName] = useState('');
   const [newUrl, setNewUrl] = useState('');
@@ -38,14 +38,12 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
     if (files && files.length > 0) {
         Array.from(files).forEach((file: File) => {
             const objectUrl = URL.createObjectURL(file);
-            // Don't auto-play when batch importing
             onAddStation(file.name.replace(/\.[^/.]+$/, ""), objectUrl, 'Local File', 'My Device', false);
         });
     }
     e.target.value = '';
   };
 
-  // Filter for Local Files
   const localStations = stations.filter(s => s.country === 'My Device' || s.genre === 'Local File');
 
   return (
@@ -55,7 +53,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
       </div>
 
       <div className="flex border-b border-white/10 bg-[#0a0a0a] overflow-x-auto no-scrollbar shrink-0">
-          {['local', 'data', 'add', 'link'].map(tab => (
+          {['local', 'data', 'add', 'link', 'dev'].map(tab => (
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
@@ -89,7 +87,6 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
                     </label>
                 </div>
 
-                {/* SCROLLABLE LIST OF LOCAL FILES */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar border border-[#222] rounded bg-[#080808] p-1">
                     {localStations.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-gray-600 gap-2 min-h-[100px]">
@@ -172,6 +169,35 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({
                   <button onClick={() => { if(ytUrl) { onAddStation('Web Stream', ytUrl, 'Stream', 'Web', true); setYtUrl(''); }}} className="w-full py-2 bg-red-900/50 hover:bg-red-800/50 border border-red-800 rounded text-xs font-bold uppercase tracking-wider shadow-lg transition-all active:scale-95">
                       Add Link
                   </button>
+              </div>
+          )}
+
+          {activeTab === 'dev' && (
+              <div className="space-y-6 pt-2 text-center animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <div className="p-6 bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] border border-white/5 rounded-2xl shadow-2xl">
+                      <h3 className="text-sm font-display font-black text-blue-400 tracking-[0.2em] mb-1">DevTools</h3>
+                      <p className="text-[10px] font-bold text-gray-500 mb-4 tracking-widest uppercase">BY CASTRO MASSIMO</p>
+                      
+                      <div className="w-12 h-[1px] bg-blue-500/30 mx-auto mb-4"></div>
+                      
+                      <p className="text-[11px] text-gray-300 leading-relaxed mb-6 font-medium">
+                        Questa App è realizzata da <span className="text-white font-bold">DevTools by Castro Massimo</span>.
+                        <br/><br/>
+                        Se hai bisogno di supporto, segnalazioni o di WebApp personalizzate contattaci.
+                      </p>
+
+                      <a 
+                        href="mailto:castromassimo@gmail.com"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-400 hover:text-white transition-all active:scale-95 shadow-[0_10px_20px_rgba(0,0,0,0.4)]"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                        Contattaci
+                      </a>
+                  </div>
+                  
+                  <div className="text-[8px] text-gray-600 font-mono tracking-tighter uppercase opacity-50">
+                    NeonStream Engine v1.0.4 // Build 2024
+                  </div>
               </div>
           )}
       </div>
